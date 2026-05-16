@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BlockChain File Share</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--card:#1a2035;--border:#2a3555;
+  --purple:#8b5cf6;--cyan:#06b6d4;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;
+  --text:#e2e8f0;--muted:#64748b;--radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+
+/* ── Layout ── */
+.app{display:flex;flex-direction:column;min-height:100vh}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:20px;height:60px;position:sticky;top:0;z-index:10}
+.logo{font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--purple),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.node-badge{background:rgba(139,92,246,.15);border:1px solid var(--purple);border-radius:20px;padding:4px 12px;font-size:13px;font-family:'JetBrains Mono',monospace}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:6px;transition:.3s}
+.status-dot.online{background:var(--green);box-shadow:0 0 8px var(--green)}
+nav{display:flex;gap:4px;margin-left:auto}
+nav button{background:none;border:none;color:var(--muted);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;transition:.2s}
+nav button:hover{color:var(--text);background:rgba(255,255,255,.05)}
+nav button.active{color:var(--purple);background:rgba(139,92,246,.15)}
+
+main{flex:1;padding:24px;max-width:1200px;width:100%;margin:0 auto}
+.tab{display:none}.tab.active{display:block}
+
+/* ── Cards ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.card-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.card-value{font-size:28px;font-weight:700}
+.card-sub{font-size:12px;color:var(--muted);margin-top:4px;font-family:'JetBrains Mono',monospace}
+.card.purple .card-value{color:var(--purple)}
+.card.cyan   .card-value{color:var(--cyan)}
+.card.green  .card-value{color:var(--green)}
+.card.yellow .card-value{color:var(--yellow)}
+
+/* ── Chain viz ── */
+.chain-viz{display:flex;align-items:center;overflow-x:auto;padding:16px 0;gap:0;margin-bottom:24px}
+.blk{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;min-width:140px;flex-shrink:0;transition:.2s}
+.blk:hover{border-color:var(--purple);transform:translateY(-2px)}
+.blk-idx{font-size:11px;color:var(--muted)}
+.blk-hash{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--purple);margin:4px 0}
+.blk-ts{font-size:10px;color:var(--muted)}
+.chain-arrow{color:var(--border);font-size:20px;padding:0 8px;flex-shrink:0}
+
+/* ── Table ── */
+.section-title{font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.badge{background:rgba(139,92,246,.2);color:var(--purple);border-radius:20px;padding:2px 10px;font-size:12px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:12px 16px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+td{padding:12px 16px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.04);font-family:'JetBrains Mono',monospace}
+tr:hover td{background:rgba(255,255,255,.02)}
+.hash-cell{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--purple)}
+.expand-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;transition:.2s}
+.expand-btn:hover{border-color:var(--purple);color:var(--purple)}
+.expanded-row td{background:rgba(139,92,246,.05);font-size:12px;color:var(--muted);white-space:pre-wrap;word-break:break-all}
+
+/* ── File upload ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:700px){.two-col{grid-template-columns:1fr}}
+.dropzone{border:2px dashed var(--border);border-radius:var(--radius);padding:48px 24px;text-align:center;cursor:pointer;transition:.2s;background:var(--card)}
+.dropzone:hover,.dropzone.over{border-color:var(--purple);background:rgba(139,92,246,.05)}
+.dropzone .icon{font-size:40px;margin-bottom:12px}
+.dropzone p{color:var(--muted);font-size:14px;margin-bottom:8px}
+.dropzone strong{color:var(--text)}
+#fileInput{display:none}
+.progress-wrap{margin-top:16px;display:none}
+.progress-bar{height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--cyan));width:0%;transition:width .3s;border-radius:3px}
+.transfer-status{font-size:13px;margin-top:8px;color:var(--muted)}
+
+.file-list{display:flex;flex-direction:column;gap:8px}
+.file-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px}
+.file-icon{font-size:24px;flex-shrink:0}
+.file-name{font-size:13px;font-weight:500;word-break:break-all}
+.file-size{font-size:11px;color:var(--muted);margin-top:2px;font-family:'JetBrains Mono',monospace}
+
+/* ── Peers ── */
+.peer-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.peer-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;display:flex;align-items:center;gap:12px}
+.peer-dot{width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0;box-shadow:0 0 6px var(--green)}
+.peer-addr{font-family:'JetBrains Mono',monospace;font-size:13px}
+
+/* ── Metrics ── */
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.metric-title{font-size:14px;font-weight:600;margin-bottom:14px;color:var(--cyan)}
+.metric-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px}
+.metric-key{color:var(--muted)}
+.metric-val{font-family:'JetBrains Mono',monospace;color:var(--text)}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 20px;font-size:14px;transform:translateY(80px);opacity:0;transition:.3s;z-index:100;max-width:320px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{border-color:var(--green)}
+.toast.error{border-color:var(--red)}
+
+/* ── Util ── */
+.empty{text-align:center;padding:48px;color:var(--muted);font-size:14px}
+.spin{animation:spin 1s linear infinite;display:inline-block}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── Header ── -->
+<header>
+  <span class="logo">⛓ BlockChain FS</span>
+  <span class="node-badge"><span class="status-dot" id="dot"></span><span id="hdr-node">connecting…</span></span>
+  <nav>
+    <button class="active" onclick="showTab('dashboard',this)">Dashboard</button>
+    <button onclick="showTab('chain',this)">Chain Explorer</button>
+    <button onclick="showTab('files',this)">File Transfer</button>
+    <button onclick="showTab('metrics',this)">Metrics</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ── Dashboard ── -->
+<div class="tab active" id="tab-dashboard">
+  <div class="stats-grid">
+    <div class="card purple"><div class="card-label">Chain Length</div><div class="card-value" id="s-chain">—</div><div class="card-sub">blocks total</div></div>
+    <div class="card cyan">  <div class="card-label">Peers</div>      <div class="card-value" id="s-peers">—</div><div class="card-sub">connected nodes</div></div>
+    <div class="card green"> <div class="card-label">Node Host</div>   <div class="card-value" style="font-size:16px;padding-top:4px" id="s-host">—</div><div class="card-sub" id="s-port"></div></div>
+    <div class="card yellow"><div class="card-label">Received Files</div><div class="card-value" id="s-files">—</div><div class="card-sub">in node_files/</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:24px">
+    <div class="section-title">Recent Blocks <span class="badge" id="viz-count">0</span></div>
+    <div class="chain-viz" id="chain-viz"><div class="empty">No blocks yet</div></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Connected Peers</div>
+    <div class="peer-grid" id="peer-grid"><div class="empty">No peers discovered yet</div></div>
+  </div>
+</div>
+
+<!-- ── Chain Explorer ── -->
+<div class="tab" id="tab-chain">
+  <div class="card">
+    <div class="section-title">Blockchain <span class="badge" id="chain-count">0 blocks</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Hash</th><th>Prev Hash</th><th>Timestamp</th><th>Nonce</th><th></th></tr></thead>
+        <tbody id="chain-tbody"><tr><td colspan="6" class="empty">No blocks</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── File Transfer ── -->
+<div class="tab" id="tab-files">
+  <div class="two-col">
+    <div>
+      <div class="section-title">Send File</div>
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+        <div class="icon">📂</div>
+        <p><strong>Click or drag & drop</strong></p>
+        <p>File will be encrypted with AES-256 and sent to all peers</p>
+        <input type="file" id="fileInput"/>
+      </div>
+      <div class="progress-wrap" id="prog-wrap">
+        <div class="progress-bar"><div class="progress-fill" id="prog-fill"></div></div>
+        <div class="transfer-status" id="prog-status">Uploading…</div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">Received Files <span class="badge" id="files-count">0</span></div>
+      <div class="file-list" id="file-list"><div class="empty">No files received yet</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Metrics ── -->
+<div class="tab" id="tab-metrics">
+  <div class="section-title">Performance Metrics</div>
+  <div class="metrics-grid" id="metrics-grid"><div class="empty">No metrics yet. Send a file to generate data.</div></div>
+</div>
+
+</main>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State & polling ──────────────────────────────────────────────────────────
+let chainData=[], peersData=[], filesData=[], metricsData={};
+
+function showTab(name,btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+function toast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast '+type+' show';
+  setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+function fmt(bytes){
+  if(bytes<1024) return bytes+'B';
+  if(bytes<1048576) return (bytes/1024).toFixed(1)+'KB';
+  return (bytes/1048576).toFixed(2)+'MB';
+}
+function shortHash(h){return h?h.slice(0,8)+'…'+h.slice(-6):'-'}
+function fmtTime(ts){
+  if(!ts) return '-';
+  const d=new Date(typeof ts==='string'?ts:ts*1000);
+  return d.toLocaleTimeString();
+}
+
+// ── API calls ─────────────────────────────────────────────────────────────────
+async function fetchStatus(){
+  try{
+    const r=await fetch('/api/status');
+    const d=await r.json();
+    const online=d.status==='running';
+    document.getElementById('dot').className='status-dot'+(online?' online':'');
+    document.getElementById('hdr-node').textContent=online?d.node_id:'connecting…';
+    document.getElementById('s-chain').textContent=d.chain_length??'—';
+    document.getElementById('s-peers').textContent=d.peers_count??'—';
+    document.getElementById('s-host').textContent=d.host??'—';
+    document.getElementById('s-port').textContent=d.port?'port '+d.port:'';
+  }catch(e){}
+}
+
+async function fetchChain(){
+  try{
+    const r=await fetch('/api/chain');
+    chainData=await r.json();
+    renderChainViz();
+    renderChainTable();
+    document.getElementById('chain-count').textContent=chainData.length+' block'+(chainData.length!==1?'s':'');
+    document.getElementById('viz-count').textContent=chainData.length;
+  }catch(e){}
+}
+
+async function fetchPeers(){
+  try{
+    const r=await fetch('/api/peers');
+    peersData=await r.json();
+    renderPeers();
+  }catch(e){}
+}
+
+async function fetchFiles(){
+  try{
+    const r=await fetch('/api/files');
+    filesData=await r.json();
+    renderFiles();
+    document.getElementById('s-files').textContent=filesData.length;
+    document.getElementById('files-count').textContent=filesData.length;
+  }catch(e){}
+}
+
+async function fetchMetrics(){
+  try{
+    const r=await fetch('/api/metrics');
+    metricsData=await r.json();
+    renderMetrics();
+  }catch(e){}
+}
+
+// ── Renderers ─────────────────────────────────────────────────────────────────
+function renderChainViz(){
+  const el=document.getElementById('chain-viz');
+  if(!chainData.length){el.innerHTML='<div class="empty">No blocks yet</div>';return;}
+  const last=chainData.slice(-6);
+  el.innerHTML=last.map((b,i)=>`
+    <div class="blk">
+      <div class="blk-idx">Block #${b.index}</div>
+      <div class="blk-hash">${shortHash(b.hash)}</div>
+      <div class="blk-ts">${fmtTime(b.timestamp)}</div>
+    </div>
+    ${i<last.length-1?'<span class="chain-arrow">→</span>':''}
+  `).join('');
+}
+
+function renderChainTable(){
+  const tb=document.getElementById('chain-tbody');
+  if(!chainData.length){tb.innerHTML='<tr><td colspan="6" class="empty">No blocks</td></tr>';return;}
+  tb.innerHTML=[...chainData].reverse().map(b=>`
+    <tr>
+      <td>#${b.index}</td>
+      <td class="hash-cell" title="${b.hash}">${shortHash(b.hash)}</td>
+      <td class="hash-cell" title="${b.previous_hash}">${shortHash(b.previous_hash)}</td>
+      <td>${fmtTime(b.timestamp)}</td>
+      <td>${b.nonce}</td>
+      <td><button class="expand-btn" onclick="expandRow(this,'${encodeURIComponent(JSON.stringify(b.data))}')">Data</button></td>
+    </tr>
+  `).join('');
+}
+
+function expandRow(btn,encoded){
+  const tr=btn.closest('tr');
+  const next=tr.nextElementSibling;
+  if(next&&next.classList.contains('expanded-row')){next.remove();btn.textContent='Data';return;}
+  const data=decodeURIComponent(encoded);
+  let pretty=data;
+  try{pretty=JSON.stringify(JSON.parse(data),null,2);}catch(e){}
+  const row=document.createElement('tr');
+  row.className='expanded-row';
+  row.innerHTML=`<td colspan="6"><pre>${pretty}</pre></td>`;
+  tr.after(row);
+  btn.textContent='Hide';
+}
+
+function renderPeers(){
+  const el=document.getElementById('peer-grid');
+  if(!peersData.length){el.innerHTML='<div class="empty">No peers discovered yet</div>';return;}
+  el.innerHTML=peersData.map(p=>`
+    <div class="peer-card">
+      <div class="peer-dot"></div>
+      <div>
+        <div class="peer-addr">${p.host}</div>
+        <div style="font-size:11px;color:var(--muted)">port ${p.port}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderFiles(){
+  const el=document.getElementById('file-list');
+  if(!filesData.length){el.innerHTML='<div class="empty">No files received yet</div>';return;}
+  const icons={'pdf':'📄','png':'🖼','jpg':'🖼','jpeg':'🖼','zip':'📦','mp4':'🎬','txt':'📝','py':'🐍'};
+  el.innerHTML=filesData.map(f=>{
+    const ext=f.name.split('.').pop().toLowerCase();
+    return `<div class="file-item">
+      <div class="file-icon">${icons[ext]||'📁'}</div>
+      <div>
+        <div class="file-name">${f.name}</div>
+        <div class="file-size">${fmt(f.size)} · ${fmtTime(f.modified)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMetrics(){
+  const el=document.getElementById('metrics-grid');
+  const keys=Object.keys(metricsData).filter(k=>k!=='node_id');
+  if(!keys.length){el.innerHTML='<div class="empty">No metrics yet. Send a file to generate data.</div>';return;}
+  const labels={
+    pow_time:'PoW Time',consensus_time:'Consensus Time',
+    encryption_time:'Encrypt Time',transfer_time:'Transfer Time',
+    total_time:'Total Time',broadcast_time:'Broadcast Time',decryption_time:'Decrypt Time'
+  };
+  el.innerHTML=keys.map(k=>{
+    const m=metricsData[k];
+    return `<div class="metric-card">
+      <div class="metric-title">${labels[k]||k}</div>
+      ${['count','mean','min','max','stdev'].map(stat=>`
+        <div class="metric-row">
+          <span class="metric-key">${stat}</span>
+          <span class="metric-val">${stat==='count'?m[stat]:m[stat].toFixed(4)+'s'}</span>
+        </div>
+      `).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ── File upload ──────────────────────────────────────────────────────────────
+function handleFile(file){
+  if(!file) return;
+  const wrap=document.getElementById('prog-wrap');
+  const fill=document.getElementById('prog-fill');
+  const status=document.getElementById('prog-status');
+  wrap.style.display='block';
+  fill.style.width='30%';
+  status.textContent='Encrypting & sending: '+file.name;
+
+  const fd=new FormData();
+  fd.append('file',file);
+  fetch('/api/send-file',{method:'POST',body:fd})
+    .then(r=>r.json())
+    .then(d=>{
+      fill.style.width='100%';
+      if(d.success){
+        status.textContent='✓ Sent: '+d.filename;
+        toast('File "'+d.filename+'" sent to peers');
+      }else{
+        status.textContent='✗ Error: '+(d.error||'unknown');
+        toast(d.error||'Send failed','error');
+      }
+      setTimeout(()=>{wrap.style.display='none';fill.style.width='0%';},3000);
+    })
+    .catch(()=>{
+      status.textContent='✗ Network error';
+      fill.style.width='0%';
+      toast('Network error','error');
+    });
+}
+
+// Drag & drop
+const dz=document.getElementById('dropzone');
+const fi=document.getElementById('fileInput');
+fi.addEventListener('change',e=>handleFile(e.target.files[0]));
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.classList.remove('over');
+  handleFile(e.dataTransfer.files[0]);
+});
+
+// ── Polling ───────────────────────────────────────────────────────────────────
+function poll(){
+  fetchStatus();
+  fetchChain();
+  fetchPeers();
+  fetchFiles();
+  fetchMetrics();
+}
+poll();
+setInterval(poll, 2500);
+</script>
+</body>
+</html>
