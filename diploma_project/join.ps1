@@ -15,45 +15,46 @@ Write-Host "   Decentralized P2P File Sharing Network        " -ForegroundColor 
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# ── Step 1: Find a real Python ───────────────────────────────
-Write-Host "[1/4] Checking Python..." -ForegroundColor Yellow
+# ── Step 1: Setup portable Python (no install needed!) ───────
+Write-Host "[1/4] Setting up Python..." -ForegroundColor Yellow
 
-$PY = $null
+$pythonDir = "$INSTALL_DIR\python"
+$PY        = "$pythonDir\python.exe"
 
-# Try 'py' launcher first (most reliable on Windows)
-try {
-    $ver = & py -3 -c "import sys; print(sys.version)" 2>&1
-    if ($ver -match '^\d') { $PY = "py -3" }
-} catch {}
-
-# Try 'python' if 'py' failed
-if (-not $PY) {
+if (-not (Test-Path $PY)) {
+    Write-Host "      Downloading portable Python 3.11..." -ForegroundColor Gray
+    $pythonUrl = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"
+    $pythonZip = "$env:TEMP\python-embed.zip"
+    
     try {
-        $ver = & python -c "import sys; print(sys.version)" 2>&1
-        if ($ver -match '^\d') { $PY = "python" }
-    } catch {}
+        Invoke-WebRequest -Uri $pythonUrl -OutFile $pythonZip -UseBasicParsing -ErrorAction Stop
+    } catch {
+        Write-Host "      ERROR: Could not download Python: $_" -ForegroundColor Red
+        Read-Host "Press Enter to exit"; exit 1
+    }
+    
+    New-Item -ItemType Directory -Path $pythonDir -Force | Out-Null
+    Expand-Archive -Path $pythonZip -DestinationPath $pythonDir -Force
+    
+    # Enable site-packages (needed for pip to work in embedded Python)
+    $pthFile = Get-ChildItem $pythonDir -Filter "python*._pth" | Select-Object -First 1
+    if ($pthFile) {
+        $content = Get-Content $pthFile.FullName -Raw
+        $content = $content -replace '#import site', 'import site'
+        Set-Content $pthFile.FullName $content -NoNewline
+    }
+    
+    # Install pip into the embedded Python
+    Write-Host "      Installing pip..." -ForegroundColor Gray
+    $getPipUrl  = "https://bootstrap.pypa.io/get-pip.py"
+    $getPipPath = "$env:TEMP\get-pip.py"
+    Invoke-WebRequest -Uri $getPipUrl -OutFile $getPipPath -UseBasicParsing
+    & $PY $getPipPath -q
+    
+    Write-Host "      Portable Python ready!" -ForegroundColor Green
+} else {
+    Write-Host "      Portable Python already installed." -ForegroundColor Green
 }
-
-# Try 'python3'
-if (-not $PY) {
-    try {
-        $ver = & python3 -c "import sys; print(sys.version)" 2>&1
-        if ($ver -match '^\d') { $PY = "python3" }
-    } catch {}
-}
-
-if (-not $PY) {
-    Write-Host ""
-    Write-Host "  ERROR: Python 3 not found on this system!" -ForegroundColor Red
-    Write-Host "  Please install Python from https://python.org" -ForegroundColor Yellow
-    Write-Host "  IMPORTANT: check 'Add Python to PATH' during install!" -ForegroundColor Yellow
-    Write-Host ""
-    Start-Process "https://www.python.org/downloads/"
-    Read-Host "Install Python, then re-run this script. Press Enter to exit"
-    exit 1
-}
-
-Write-Host "      OK: Python found ($PY, v$ver)" -ForegroundColor Green
 
 # ── Step 2: Download project ─────────────────────────────────
 Write-Host "[2/4] Downloading node software from GitHub..." -ForegroundColor Yellow
@@ -92,23 +93,21 @@ Write-Host "      Project path: $projectPath" -ForegroundColor Green
 Write-Host "[3/4] Installing Python dependencies..." -ForegroundColor Yellow
 $reqFile = Join-Path $projectPath "requirements.txt"
 if (Test-Path $reqFile) {
-    & $PY.Split()[0] ($PY.Split()[1..99] + @("-m", "pip", "install", "-r", $reqFile, "-q"))
+    & $PY -m pip install -r $reqFile -q
     Write-Host "      Dependencies installed from requirements.txt!" -ForegroundColor Green
 } else {
     Write-Host "      requirements.txt not found, installing core packages..." -ForegroundColor Yellow
 }
 
-# Always ensure core packages are present (fallback)
-& $PY.Split()[0] ($PY.Split()[1..99] + @("-m", "pip", "install", "flask", "cryptography", "netifaces-plus", "-q"))
+# Always ensure core packages are present
+& $PY -m pip install flask cryptography netifaces-plus -q
 Write-Host "      Core packages verified." -ForegroundColor Green
 
 # Quick import test
-$testResult = & $PY.Split()[0] ($PY.Split()[1..99] + @("-c", "import flask, cryptography, netifaces; print('OK')")) 2>&1
+$testResult = & $PY -c "import flask, cryptography, netifaces; print('OK')" 2>&1
 if ($testResult -ne "OK") {
-    Write-Host "      ERROR: Package import failed: $testResult" -ForegroundColor Red
-    Write-Host "      Try: $PY -m pip install flask cryptography netifaces-plus" -ForegroundColor Yellow
-    Read-Host "Press Enter to exit"
-    exit 1
+    Write-Host "      ERROR: Import failed: $testResult" -ForegroundColor Red
+    Read-Host "Press Enter to exit"; exit 1
 }
 Write-Host "      Import test passed!" -ForegroundColor Green
 
@@ -130,11 +129,8 @@ Write-Host ""
 
 # Launch node in a new visible window
 Write-Host "  Launching node..." -ForegroundColor Gray
-$pyExe  = $PY.Split()[0]         # 'py' or 'python'
-$pyArgs = $PY.Split()[1..99]     # '-3' or empty
-$nodeArgs = $pyArgs + @("app.py", $nodeName, "$WEB_PORT")
-Start-Process -FilePath $pyExe `
-    -ArgumentList $nodeArgs `
+Start-Process -FilePath $PY `
+    -ArgumentList @("app.py", $nodeName, "$WEB_PORT") `
     -WorkingDirectory $projectPath
 
 # Poll until Flask responds (max 40 seconds)
