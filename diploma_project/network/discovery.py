@@ -31,53 +31,42 @@ class NetworkDiscovery:
             return "127.0.0.1"
 
 
-    def discover_nodes(self) -> Dict[str, Tuple[str, int]]:
-        """Scan the network for other blockchain nodes."""
-        
-        network_prefix = '.'.join(self.my_ip.split('.')[:-1]) + '.'
-        
-        discovered_nodes = {}
-        
-        def try_connect(ip: str, port: int):
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.settimeout(0.5)  
-                    s.connect((ip, port))
-                    
-                    
-                    request = {
-                        'type': 'discovery',
-                        'sender_ip': self.my_ip
-                    }
-                    s.sendall(json.dumps(request).encode('utf-8'))
-                    
-                    
-                    response = json.loads(s.recv(1024).decode('utf-8'))
-                    if response.get('type') == 'discovery_response':
-                        node_id = response.get('node_id')
-                        discovered_nodes[node_id] = (ip, port)
-                        
-                        
-            except (socket.timeout, ConnectionRefusedError, OSError):
-                pass  # Unreachable host or invalid address — expected on some network interfaces
-            except Exception as e:
-                pass  # Suppress all scan noise
+    WEB_PORT = 8080  # Flask port — always open, firewall already allowed it
 
-       
-        threads = []
-        for i in range(1, 255):  
-            ip = network_prefix + str(i)
-            if ip != self.my_ip:  
-                for port_offset in range(self.MAX_NODES):
-                    port = self.DISCOVERY_PORT + port_offset
-                    thread = threading.Thread(target=try_connect, args=(ip, port))
-                    thread.start()
-                    threads.append(thread)
-        
-        
-        for thread in threads:
-            thread.join()
-            
+    def discover_nodes(self) -> Dict[str, Tuple[str, int]]:
+        """Scan the LAN for nodes by probing /api/status on port 8080.
+        This works even when multicast is blocked, because Flask's port is
+        already allowed through Windows Firewall."""
+        import urllib.request
+
+        network_prefix = '.'.join(self.my_ip.split('.')[:-1]) + '.'
+        discovered_nodes = {}
+        lock = threading.Lock()
+
+        def try_http(ip: str):
+            if ip == self.my_ip:
+                return
+            try:
+                url = f"http://{ip}:{self.WEB_PORT}/api/status"
+                with urllib.request.urlopen(url, timeout=0.8) as resp:
+                    data = json.loads(resp.read().decode())
+                    node_id   = data.get("node_id")
+                    node_host = data.get("host", ip)
+                    node_port = data.get("port")   # file-transfer port
+                    if node_id and node_port:
+                        with lock:
+                            discovered_nodes[node_id] = (node_host, node_port)
+                        print(f"[Discovery] Found node '{node_id}' at {node_host}:{node_port}")
+            except Exception:
+                pass  # Host not running a node — expected
+
+        threads = [threading.Thread(target=try_http, args=(network_prefix + str(i),))
+                   for i in range(1, 255)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=1.5)
+
         return discovered_nodes
 
     def initialize_node(self, node_id: str):
