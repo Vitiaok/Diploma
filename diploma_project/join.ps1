@@ -4,7 +4,7 @@
 #         або: powershell -ExecutionPolicy Bypass -File join.ps1
 # ═══════════════════════════════════════════════════════════════
 
-$GITHUB_REPO = "https://github.com/YOUR_USERNAME/diploma_project/archive/refs/heads/main.zip"
+$GITHUB_REPO = "https://github.com/Vitiaok/diploma_project/archive/refs/heads/main.zip"
 $INSTALL_DIR = "$env:USERPROFILE\blockchain-node"
 $WEB_PORT    = 8080
 
