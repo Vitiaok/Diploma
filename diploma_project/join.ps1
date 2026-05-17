@@ -132,10 +132,14 @@ Write-Host ""
 Write-Host "  Launching node in new window..." -ForegroundColor Gray
 Write-Host "  >>> If Windows asks about Firewall — click ALLOW! <<<" -ForegroundColor Yellow
 
+# CRITICAL: set PYTHONPATH so embedded Python finds project modules
+$env:PYTHONPATH = $projectPath
+
 $proc = Start-Process -FilePath $PY `
     -ArgumentList @("app.py", $nodeName, "$WEB_PORT") `
     -WorkingDirectory $projectPath `
     -PassThru
+
 
 # Poll until Flask responds (max 60 seconds)
 Write-Host "  Waiting for server" -NoNewline -ForegroundColor Yellow
