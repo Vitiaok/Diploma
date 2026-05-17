@@ -185,7 +185,7 @@ class Node:
 
     def start_server(self):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  
+        # Прибираємо REUSEADDR, щоб порти не дублювалися на Windows
         # Слухаємо на всіх інтерфейсах (0.0.0.0)
         self.server_socket.bind(('0.0.0.0', self.port))
         self.server_socket.listen(5)
@@ -396,22 +396,16 @@ class Node:
                 data, address = sock.recvfrom(BUFFER_SIZE)
                 message = json.loads(data.decode('utf-8'))
 
-                if message['type'] == 'node_announcement':
-                    peer_host = address[0]
-                    peer_port = message['port']
-                    
-                 
-                    if (peer_host == self.host or 
-                        peer_host == 'localhost' or 
-                        peer_host == '127.0.0.1' or
-                        message['node_id'] == self.node_id):
-                        continue
-                    
-                    peer_info = (peer_host, peer_port)
-                    if peer_info not in self.peers:
-                        self.peers.append(peer_info)
-                        print(f"Found new peer: {peer_info}")
-                        
+                if message.get('node_id') == self.node_id:
+                    continue
+
+                peer_host = address[0]
+                peer_port = message['port']
+                peer_info = (peer_host, peer_port)
+                if peer_info not in self.peers:
+                    self.peers.append(peer_info)
+                    print(f"Found new peer: {peer_info}")
+
             except Exception as e:
                 if self.running:  
                     print(f"Multicast listen error: {e}")
@@ -444,23 +438,16 @@ class Node:
             time.sleep(10)  
 
     def _get_file_transfer_peers(self):
-        
         discovery_peers = NetworkConfig.get_peers(self.node_id)
         
-        
         filtered_peers = []
-        own_ip = NetworkConfig._discovery._get_my_ip()
-        
         for host, port in discovery_peers:
-            
-            if host == own_ip or host == self.host or host == 'localhost' or host == '127.0.0.1':
-                print(f"Skipping own address: {host}:{port}")
-                continue
-            
-            
+            # Фільтруємо тільки себе (за портом, не за IP — бо можемо бути на тому ж хості)
             file_transfer_port = NetworkConfig._discovery.get_file_transfer_port(port)
+            if file_transfer_port == self.port:
+                print(f"Skipping own port: {host}:{file_transfer_port}")
+                continue
             filtered_peers.append((host, file_transfer_port))
-        
         
         return filtered_peers
     

@@ -196,6 +196,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <script>
 // ── State & polling ──────────────────────────────────────────────────────────
 let chainData=[], peersData=[], filesData=[], metricsData={};
+let expandedBlocks = new Set(); // зберігаємо індекси розгорнутих блоків
 
 function showTab(name,btn){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -293,21 +294,42 @@ function renderChainTable(){
   const tb=document.getElementById('chain-tbody');
   if(!chainData.length){tb.innerHTML='<tr><td colspan="6" class="empty">No blocks</td></tr>';return;}
   tb.innerHTML=[...chainData].reverse().map(b=>`
-    <tr>
+    <tr data-block-index="${b.index}">
       <td>#${b.index}</td>
       <td class="hash-cell" title="${b.hash}">${shortHash(b.hash)}</td>
       <td class="hash-cell" title="${b.previous_hash}">${shortHash(b.previous_hash)}</td>
       <td>${fmtTime(b.timestamp)}</td>
       <td>${b.nonce}</td>
-      <td><button class="expand-btn" onclick="expandRow(this,'${encodeURIComponent(JSON.stringify(b.data))}')">Data</button></td>
+      <td><button class="expand-btn" onclick="expandRow(this,'${encodeURIComponent(JSON.stringify(b.data))}',${b.index})">${expandedBlocks.has(b.index)?'Hide':'Data'}</button></td>
     </tr>
   `).join('');
+  
+  // Відновлюємо розгорнуті рядки після перемальовування
+  expandedBlocks.forEach(idx=>{
+    const row = tb.querySelector(`tr[data-block-index="${idx}"]`);
+    if(!row) return;
+    const btn = row.querySelector('.expand-btn');
+    const encoded = btn.getAttribute('onclick').match(/'([^']+)',\d+/)?.[1];
+    if(!encoded) return;
+    const data=decodeURIComponent(encoded);
+    let pretty=data;
+    try{pretty=JSON.stringify(JSON.parse(data),null,2);}catch(e){}
+    const expRow=document.createElement('tr');
+    expRow.className='expanded-row';
+    expRow.innerHTML=`<td colspan="6"><pre>${pretty}</pre></td>`;
+    row.after(expRow);
+  });
 }
 
-function expandRow(btn,encoded){
+function expandRow(btn,encoded,blockIndex){
   const tr=btn.closest('tr');
   const next=tr.nextElementSibling;
-  if(next&&next.classList.contains('expanded-row')){next.remove();btn.textContent='Data';return;}
+  if(next&&next.classList.contains('expanded-row')){
+    next.remove();
+    btn.textContent='Data';
+    expandedBlocks.delete(blockIndex);
+    return;
+  }
   const data=decodeURIComponent(encoded);
   let pretty=data;
   try{pretty=JSON.stringify(JSON.parse(data),null,2);}catch(e){}
@@ -316,6 +338,7 @@ function expandRow(btn,encoded){
   row.innerHTML=`<td colspan="6"><pre>${pretty}</pre></td>`;
   tr.after(row);
   btn.textContent='Hide';
+  expandedBlocks.add(blockIndex);
 }
 
 function renderPeers(){
@@ -423,7 +446,11 @@ function poll(){
   fetchMetrics();
 }
 poll();
-setInterval(poll, 2500);
+setInterval(fetchStatus, 2500);
+setInterval(fetchPeers,  2500);
+setInterval(fetchFiles,  3000);
+setInterval(fetchMetrics,3000);
+setInterval(fetchChain,  5000); // рідше, щоб не руйнувати відкриті рядки
 </script>
 </body>
 </html>

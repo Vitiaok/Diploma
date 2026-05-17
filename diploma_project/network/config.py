@@ -5,32 +5,30 @@ class NetworkConfig:
     _discovery = None  
     
     @classmethod
-    def initialize(cls, node_id):
-        
+    def initialize(cls, node_id: str):
+        print(f"[*] Initializing NetworkConfig for {node_id}...", flush=True)
         if cls._discovery is None:
             cls._discovery = NetworkDiscovery()  
-            try:
-                cls._discovery.start(node_id)
-            except Exception as e:
-                print(f"Error initializing network discovery: {e}")
-                raise
-    
-    @classmethod
-    def get_node_info(cls, node_id):
         
-        try:
-            if not cls._discovery:
-                raise RuntimeError("NetworkConfig not initialized. Call initialize() first.")
-                
-            if node_id in cls._discovery.nodes:
-                return cls._discovery.nodes[node_id]
-            
-            
-            return cls._discovery._get_my_ip(), cls._discovery.DISCOVERY_PORT
-            
-        except Exception as e:
-            print(f"Error getting node info for {node_id}: {e}")
-            raise
+        cls._discovery.initialize_node(node_id)
+        # Отримуємо призначений порт
+        addr = cls._discovery.nodes.get(node_id)
+        if addr:
+            print(f"[*] NetworkConfig ready. Node {node_id} is on port {addr[1]}", flush=True)
+        else:
+            print(f"[!] Warning: Node {node_id} not found in discovery after initialization!", flush=True)
+
+    @classmethod
+    def get_node_info(cls, node_id: str):
+        if not cls._discovery:
+            raise RuntimeError("NetworkConfig not initialized. Call initialize() first.")
+        
+        # Повертаємо саме той порт, який був призначений в initialize_node
+        if node_id in cls._discovery.nodes:
+            return cls._discovery.nodes[node_id]
+        
+        # Якщо вузла немає (що дивно), генеруємо помилку або повертаємо хоч щось
+        return cls._discovery.my_ip, cls._discovery.DISCOVERY_PORT
     
     @classmethod
     def get_peers(cls, node_id):

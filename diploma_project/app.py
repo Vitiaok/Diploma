@@ -31,6 +31,7 @@ def _start_node(node_id: str):
         time.sleep(1)
         _node = Node(node_id)
         # Start all background threads — skip CLI user_interface()
+        threading.Thread(target=NetworkConfig._discovery.start_discovery_server, args=(node_id,), daemon=True).start()
         threading.Thread(target=_node.start_server,                daemon=True).start()
         threading.Thread(target=_node.multicast_listen,            daemon=True).start()
         threading.Thread(target=_node.periodic_multicast_announce, daemon=True).start()

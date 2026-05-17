@@ -12,6 +12,7 @@ class NetworkDiscovery:
 
     def __init__(self):
         self.nodes: Dict[str, Tuple[str, int]] = {}
+        self._lock_socket = None
         self.my_ip = self._get_my_ip()
         self.discovery_thread = None
         self.running = True
@@ -79,22 +80,60 @@ class NetworkDiscovery:
             
         return discovered_nodes
 
+    def initialize_node(self, node_id: str):
+        """Пряме та надійне призначення портів для локальних тестів."""
+        # 1. Визначаємо порти за назвою вузла
+        name = str(node_id).lower()
+        if 'node1' in name:
+            offset = 0
+        elif 'node2' in name:
+            offset = 1
+        elif 'node3' in name:
+            offset = 2
+        else:
+            # Якщо ім'я інше - використовуємо хеш
+            offset = sum(ord(c) for c in name) % self.MAX_NODES
+            
+        discovery_port = self.DISCOVERY_PORT + offset
+        transfer_port = discovery_port + self.FILE_TRANSFER_PORT_OFFSET
+        
+        self.nodes[node_id] = (self.my_ip, discovery_port)
+        
+        print(f"\n[INIT] Node: {node_id} | Offset: {offset}", flush=True)
+        print(f"[INIT] Discovery Port: {discovery_port}", flush=True)
+        print(f"[INIT] Transfer Port: {transfer_port}\n", flush=True)
+
+        # Спробуємо заблокувати порт
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(('0.0.0.0', discovery_port))
+            s.listen(5)
+            self._lock_socket = s
+        except Exception as e:
+            print(f"[!] Discovery port {discovery_port} busy.", flush=True)
+            
+        self.discover_nodes()
+
+    def _is_port_available(self, port: int) -> bool:
+        """Перевірка чи вільний порт (більше не потрібна в такій формі, але залишимо для сумісності)."""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                return s.connect_ex(('127.0.0.1', port)) != 0
+        except:
+            return True
+
     def start_discovery_server(self, node_id: str):
-       
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        
-      
-        for port_offset in range(self.MAX_NODES):
-            try:
-                port = self.DISCOVERY_PORT + port_offset
-                server_socket.bind((self.my_ip, port))
-                self.nodes[node_id] = (self.my_ip, port)
-                break
-            except OSError:
-                continue
-        
-        server_socket.listen(5)
+        # Використовуємо сокет, створений в initialize_node, якщо він є
+        if getattr(self, '_lock_socket', None):
+            server_socket = self._lock_socket
+        else:
+            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # Якщо вузол вже відомий, беремо його порт, інакше дефолтний
+            host, port = self.nodes.get(node_id, (self.my_ip, self.DISCOVERY_PORT))
+            server_socket.bind((self.my_ip, port))
+            server_socket.listen(5)
         
 
         while self.running:
