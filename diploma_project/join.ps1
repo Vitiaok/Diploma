@@ -15,17 +15,45 @@ Write-Host "   Decentralized P2P File Sharing Network        " -ForegroundColor 
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# ── Step 1: Check Python ─────────────────────────────────────
+# ── Step 1: Find a real Python ───────────────────────────────
 Write-Host "[1/4] Checking Python..." -ForegroundColor Yellow
+
+$PY = $null
+
+# Try 'py' launcher first (most reliable on Windows)
 try {
-    $pyVersion = python --version 2>&1
-    Write-Host "      OK: $pyVersion" -ForegroundColor Green
-} catch {
-    Write-Host "      Python not found! Please install Python 3.10+ from https://python.org" -ForegroundColor Red
-    Write-Host "      Then re-run this script." -ForegroundColor Red
-    Read-Host "Press Enter to exit"
+    $ver = & py -3 -c "import sys; print(sys.version)" 2>&1
+    if ($ver -match '^\d') { $PY = "py -3" }
+} catch {}
+
+# Try 'python' if 'py' failed
+if (-not $PY) {
+    try {
+        $ver = & python -c "import sys; print(sys.version)" 2>&1
+        if ($ver -match '^\d') { $PY = "python" }
+    } catch {}
+}
+
+# Try 'python3'
+if (-not $PY) {
+    try {
+        $ver = & python3 -c "import sys; print(sys.version)" 2>&1
+        if ($ver -match '^\d') { $PY = "python3" }
+    } catch {}
+}
+
+if (-not $PY) {
+    Write-Host ""
+    Write-Host "  ERROR: Python 3 not found on this system!" -ForegroundColor Red
+    Write-Host "  Please install Python from https://python.org" -ForegroundColor Yellow
+    Write-Host "  IMPORTANT: check 'Add Python to PATH' during install!" -ForegroundColor Yellow
+    Write-Host ""
+    Start-Process "https://www.python.org/downloads/"
+    Read-Host "Install Python, then re-run this script. Press Enter to exit"
     exit 1
 }
+
+Write-Host "      OK: Python found ($PY, v$ver)" -ForegroundColor Green
 
 # ── Step 2: Download project ─────────────────────────────────
 Write-Host "[2/4] Downloading node software from GitHub..." -ForegroundColor Yellow
@@ -64,21 +92,21 @@ Write-Host "      Project path: $projectPath" -ForegroundColor Green
 Write-Host "[3/4] Installing Python dependencies..." -ForegroundColor Yellow
 $reqFile = Join-Path $projectPath "requirements.txt"
 if (Test-Path $reqFile) {
-    python -m pip install -r $reqFile -q
+    & $PY.Split()[0] ($PY.Split()[1..99] + @("-m", "pip", "install", "-r", $reqFile, "-q"))
     Write-Host "      Dependencies installed from requirements.txt!" -ForegroundColor Green
 } else {
     Write-Host "      requirements.txt not found, installing core packages..." -ForegroundColor Yellow
 }
 
 # Always ensure core packages are present (fallback)
-python -m pip install flask cryptography netifaces-plus -q
+& $PY.Split()[0] ($PY.Split()[1..99] + @("-m", "pip", "install", "flask", "cryptography", "netifaces-plus", "-q"))
 Write-Host "      Core packages verified." -ForegroundColor Green
 
 # Quick import test
-$testResult = python -c "import flask, cryptography, netifaces; print('OK')" 2>&1
+$testResult = & $PY.Split()[0] ($PY.Split()[1..99] + @("-c", "import flask, cryptography, netifaces; print('OK')")) 2>&1
 if ($testResult -ne "OK") {
     Write-Host "      ERROR: Package import failed: $testResult" -ForegroundColor Red
-    Write-Host "      Try running: pip install flask cryptography netifaces-plus" -ForegroundColor Yellow
+    Write-Host "      Try: $PY -m pip install flask cryptography netifaces-plus" -ForegroundColor Yellow
     Read-Host "Press Enter to exit"
     exit 1
 }
@@ -102,9 +130,11 @@ Write-Host ""
 
 # Launch node in a new visible window
 Write-Host "  Launching node..." -ForegroundColor Gray
-$args = "app.py", $nodeName, "$WEB_PORT"
-Start-Process -FilePath "python" `
-    -ArgumentList $args `
+$pyExe  = $PY.Split()[0]         # 'py' or 'python'
+$pyArgs = $PY.Split()[1..99]     # '-3' or empty
+$nodeArgs = $pyArgs + @("app.py", $nodeName, "$WEB_PORT")
+Start-Process -FilePath $pyExe `
+    -ArgumentList $nodeArgs `
     -WorkingDirectory $projectPath
 
 # Poll until Flask responds (max 40 seconds)
