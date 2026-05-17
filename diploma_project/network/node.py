@@ -451,9 +451,15 @@ class Node:
             sock.close()
 
     def periodic_multicast_announce(self):
-        
         while self.running:
             self.multicast_announce()
+            
+            # Sync HTTP-discovered peers into our active peers list
+            for peer in self._get_file_transfer_peers():
+                if peer not in self.peers:
+                    self.peers.append(peer)
+                    print(f"[P2P] Discovered peer via HTTP: {peer[0]}:{peer[1]}")
+                    
             time.sleep(10)  
 
     def _get_file_transfer_peers(self):
