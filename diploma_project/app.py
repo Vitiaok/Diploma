@@ -4,6 +4,12 @@ Usage: python app.py <node_id> [web_port]
 """
 import sys
 import os
+
+# Ensure the project root is in sys.path (needed for embedded/portable Python)
+_project_root = os.path.dirname(os.path.abspath(__file__))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 import threading
 import time
 from pathlib import Path
