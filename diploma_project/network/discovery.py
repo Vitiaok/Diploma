@@ -52,10 +52,11 @@ class NetworkDiscovery:
                     data = json.loads(resp.read().decode())
                     node_id   = data.get("node_id")
                     node_host = data.get("host", ip)
-                    node_port = data.get("port")   # file-transfer port
+                    node_port = data.get("port")   # file-transfer port (e.g. 6000)
                     if node_id and node_port:
+                        discovery_port = node_port - self.FILE_TRANSFER_PORT_OFFSET
                         with lock:
-                            discovered_nodes[node_id] = (node_host, node_port)
+                            discovered_nodes[node_id] = (node_host, discovery_port)
                         print(f"[Discovery] Found node '{node_id}' at {node_host}:{node_port}")
             except Exception:
                 pass  # Host not running a node — expected
@@ -100,8 +101,19 @@ class NetworkDiscovery:
         except Exception:
             print(f"[!] Discovery port {discovery_port} already in use.", flush=True)
 
-        self.discover_nodes()
+        discovered = self.discover_nodes()
+        self.nodes.update(discovered)
 
+        # Start periodic HTTP scan since app.py calls initialize_node directly
+        def periodic_discovery():
+            while self.running:
+                time.sleep(30)
+                new_nodes = self.discover_nodes()
+                self.nodes.update(new_nodes)
+
+        discovery_thread = threading.Thread(target=periodic_discovery)
+        discovery_thread.daemon = True
+        discovery_thread.start()
     def _is_port_available(self, port: int) -> bool:
         """Перевірка чи вільний порт (більше не потрібна в такій формі, але залишимо для сумісності)."""
         try:
