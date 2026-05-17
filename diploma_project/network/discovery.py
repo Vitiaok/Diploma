@@ -53,11 +53,20 @@ class NetworkDiscovery:
                     node_id   = data.get("node_id")
                     node_host = data.get("host", ip)
                     node_port = data.get("port")   # file-transfer port (e.g. 6000)
+                    pub_key   = data.get("public_key")
                     if node_id and node_port:
                         discovery_port = node_port - self.FILE_TRANSFER_PORT_OFFSET
                         with lock:
                             discovered_nodes[node_id] = (node_host, discovery_port)
                         print(f"[Discovery] Found node '{node_id}' at {node_host}:{node_port}")
+                        
+                        # Save public key for signature validation
+                        if pub_key:
+                            key_path = f"public_key_{node_id}.pem"
+                            if not __import__("os").path.exists(key_path):
+                                with open(key_path, "w") as f:
+                                    f.write(pub_key)
+                                print(f"[Discovery] Saved public key for '{node_id}'")
             except Exception:
                 pass  # Host not running a node — expected
 

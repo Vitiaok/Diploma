@@ -60,6 +60,12 @@ def index():
 def api_status():
     if _node is None:
         return jsonify({"status": "starting"})
+    pub_key = None
+    key_path = f"public_key_{_node.node_id}.pem"
+    if os.path.exists(key_path):
+        with open(key_path, 'r') as f:
+            pub_key = f.read()
+
     return jsonify({
         "status":       "running",
         "node_id":      _node.node_id,
@@ -68,6 +74,7 @@ def api_status():
         "peers_count":  len(_node.peers),
         "chain_length": len(_node.chain.blockchain),
         "running":      _node.running,
+        "public_key":   pub_key
     })
 
 
