@@ -127,11 +127,17 @@ Write-Host "  Network   : Auto-discovery (Multicast LAN)"
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Launch node in a new visible window
+# Launch node — capture output to log file so we can diagnose crashes
 Write-Host "  Launching node..." -ForegroundColor Gray
-Start-Process -FilePath $PY `
+$logFile = "$INSTALL_DIR\node_output.txt"
+$errFile = "$INSTALL_DIR\node_error.txt"
+
+$proc = Start-Process -FilePath $PY `
     -ArgumentList @("app.py", $nodeName, "$WEB_PORT") `
-    -WorkingDirectory $projectPath
+    -WorkingDirectory $projectPath `
+    -RedirectStandardOutput $logFile `
+    -RedirectStandardError  $errFile `
+    -PassThru
 
 # Poll until Flask responds (max 40 seconds)
 Write-Host "  Waiting for server to start" -NoNewline -ForegroundColor Yellow
@@ -139,6 +145,17 @@ $ready = $false
 for ($i = 0; $i -lt 40; $i++) {
     Start-Sleep -Seconds 1
     Write-Host "." -NoNewline -ForegroundColor Yellow
+
+    # Check if process already died
+    if ($proc.HasExited) {
+        Write-Host ""
+        Write-Host "  ERROR: Node process crashed!" -ForegroundColor Red
+        Write-Host "  --- Error log: ---" -ForegroundColor Red
+        if (Test-Path $errFile) { Get-Content $errFile | Select-Object -Last 20 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red } }
+        if (Test-Path $logFile) { Get-Content $logFile | Select-Object -Last 10 | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow } }
+        Read-Host "`nPress Enter to exit"; exit 1
+    }
+
     try {
         $null = Invoke-WebRequest -Uri "http://localhost:$WEB_PORT/api/status" `
             -TimeoutSec 1 -UseBasicParsing -ErrorAction Stop
@@ -152,11 +169,14 @@ if ($ready) {
     Write-Host "  Server is READY!" -ForegroundColor Green
     Start-Process "http://localhost:$WEB_PORT"
     Write-Host "  Browser opened at http://localhost:$WEB_PORT" -ForegroundColor Cyan
-    Write-Host "  To stop the node: close the Python window." -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "  Node log: $logFile" -ForegroundColor DarkGray
+    Write-Host "  Press Ctrl+C in node window to stop." -ForegroundColor DarkGray
 } else {
     Write-Host "  Server did not respond in 40s." -ForegroundColor Yellow
-    Write-Host "  Check the Python window for errors." -ForegroundColor Yellow
-    Write-Host "  Then try: http://localhost:$WEB_PORT" -ForegroundColor DarkGray
+    Write-Host "  --- Last log lines: ---" -ForegroundColor Yellow
+    if (Test-Path $logFile) { Get-Content $logFile | Select-Object -Last 15 | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray } }
+    if (Test-Path $errFile) { Get-Content $errFile | Select-Object -Last 10 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red } }
 }
 
 Read-Host "`nPress Enter to close this window"
