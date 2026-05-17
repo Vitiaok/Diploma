@@ -90,6 +90,37 @@ Write-Host ""
 Start-Sleep -Seconds 2
 Start-Process "http://localhost:$WEB_PORT"
 
-# Run the node
-Set-Location $projectPath
-python app.py $nodeName $WEB_PORT
+# Run the node in a NEW window (so we can poll for readiness)
+Write-Host "  Starting node process..." -ForegroundColor Gray
+$proc = Start-Process -FilePath "python" `
+    -ArgumentList "app.py $nodeName $WEB_PORT" `
+    -WorkingDirectory $projectPath `
+    -PassThru  # returns process object so we can track it
+
+# Poll until Flask server responds (max 30 seconds)
+Write-Host "  Waiting for server" -NoNewline -ForegroundColor Yellow
+$ready = $false
+for ($i = 0; $i -lt 30; $i++) {
+    Start-Sleep -Seconds 1
+    Write-Host "." -NoNewline -ForegroundColor Yellow
+    try {
+        $null = Invoke-WebRequest -Uri "http://localhost:$WEB_PORT/api/status" `
+            -TimeoutSec 1 -UseBasicParsing -ErrorAction Stop
+        $ready = $true
+        break
+    } catch {}
+}
+
+if ($ready) {
+    Write-Host " Ready!" -ForegroundColor Green
+    Start-Process "http://localhost:$WEB_PORT"
+    Write-Host ""
+    Write-Host "  Node is running! Browser opened at http://localhost:$WEB_PORT" -ForegroundColor Green
+    Write-Host "  Close the node window to stop." -ForegroundColor DarkGray
+} else {
+    Write-Host " Timeout." -ForegroundColor Yellow
+    Write-Host "  Server took too long. Try opening http://localhost:$WEB_PORT manually." -ForegroundColor Yellow
+}
+
+# Keep this window open
+Read-Host "`nPress Enter to close this installer window"
