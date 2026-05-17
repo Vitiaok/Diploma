@@ -81,38 +81,36 @@ class NetworkDiscovery:
         return discovered_nodes
 
     def initialize_node(self, node_id: str):
-        """Пряме та надійне призначення портів для локальних тестів."""
-        # 1. Визначаємо порти за назвою вузла
-        name = str(node_id).lower()
-        if 'node1' in name:
-            offset = 0
-        elif 'node2' in name:
-            offset = 1
-        elif 'node3' in name:
-            offset = 2
+        """Детерміноване призначення портів на основі імені вузла."""
+        import re
+        name = str(node_id).lower().strip()
+        
+        # Витягуємо числовий суфікс (node1->0, node2->1, node10->9, etc.)
+        digits = re.findall(r'\d+', name)
+        if digits:
+            offset = (int(digits[-1]) - 1) % self.MAX_NODES
         else:
-            # Якщо ім'я інше - використовуємо хеш
+            # Для довільних імен (alice, laptop, etc.) — хеш від імені
             offset = sum(ord(c) for c in name) % self.MAX_NODES
-            
-        discovery_port = self.DISCOVERY_PORT + offset
-        transfer_port = discovery_port + self.FILE_TRANSFER_PORT_OFFSET
-        
-        self.nodes[node_id] = (self.my_ip, discovery_port)
-        
-        print(f"\n[INIT] Node: {node_id} | Offset: {offset}", flush=True)
-        print(f"[INIT] Discovery Port: {discovery_port}", flush=True)
-        print(f"[INIT] Transfer Port: {transfer_port}\n", flush=True)
 
-        # Спробуємо заблокувати порт
+        discovery_port = self.DISCOVERY_PORT + offset
+        transfer_port  = discovery_port + self.FILE_TRANSFER_PORT_OFFSET
+
+        self.nodes[node_id] = (self.my_ip, discovery_port)
+
+        print(f"\n[INIT] Node: '{node_id}' | Offset: {offset}", flush=True)
+        print(f"[INIT] Discovery Port: {discovery_port} | Transfer Port: {transfer_port}\n", flush=True)
+
+        # Блокуємо порт виявлення
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind(('0.0.0.0', discovery_port))
             s.listen(5)
             self._lock_socket = s
-        except Exception as e:
-            print(f"[!] Discovery port {discovery_port} busy.", flush=True)
-            
+        except Exception:
+            print(f"[!] Discovery port {discovery_port} already in use.", flush=True)
+
         self.discover_nodes()
 
     def _is_port_available(self, port: int) -> bool:

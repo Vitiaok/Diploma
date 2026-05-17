@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  node1:
+    build: .
+    environment:
+      - NODE_ID=node1
+      - WEB_PORT=8080
+    ports:
+      - "8080:8080"
+      - "6000:6000"
+      - "5000:5000"
+    volumes:
+      - node1_data:/app/node_files
+      - node1_keys:/app
+    network_mode: host   # потрібен для multicast
+
+  node2:
+    build: .
+    environment:
+      - NODE_ID=node2
+      - WEB_PORT=8081
+    ports:
+      - "8081:8081"
+      - "6001:6001"
+      - "5001:5001"
+    volumes:
+      - node2_data:/app/node_files
+      - node2_keys:/app
+    network_mode: host
+
+volumes:
+  node1_data:
+  node1_keys:
+  node2_data:
+  node2_keys:

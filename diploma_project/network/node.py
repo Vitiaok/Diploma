@@ -379,53 +379,67 @@ class Node:
         return None
     
     def multicast_listen(self):
-        
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-        
         sock.bind(('', MULTICAST_PORT))
-
-       
         group = socket.inet_aton(MULTICAST_GROUP)
         mreq = struct.pack('4sL', group, socket.INADDR_ANY)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
         while self.running:
             try:
-                data, address = sock.recvfrom(BUFFER_SIZE)
+                data, address = sock.recvfrom(4096)  # збільшили buffer_size для ключів
                 message = json.loads(data.decode('utf-8'))
 
                 if message.get('node_id') == self.node_id:
                     continue
 
+                peer_id   = message.get('node_id')
                 peer_host = address[0]
-                peer_port = message['port']
+                peer_port = message.get('port')
                 peer_info = (peer_host, peer_port)
+
                 if peer_info not in self.peers:
                     self.peers.append(peer_info)
-                    print(f"Found new peer: {peer_info}")
+                    print(f"[P2P] New peer discovered: {peer_id} at {peer_host}:{peer_port}")
+
+                # Зберігаємо публічний ключ піра, якщо він присутній в оголошенні
+                pub_key_pem = message.get('public_key')
+                if peer_id and pub_key_pem:
+                    key_path = f"public_key_{peer_id}.pem"
+                    if not os.path.exists(key_path):
+                        with open(key_path, 'w') as f:
+                            f.write(pub_key_pem)
+                        print(f"[P2P] Saved public key for {peer_id}")
 
             except Exception as e:
-                if self.running:  
+                if self.running:
                     print(f"Multicast listen error: {e}")
         sock.close()
 
     def multicast_announce(self):
-        
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
 
+        # Додаємо публічний ключ до оголошення (реальний P2P обмін ключами)
+        pub_key_pem = None
+        key_path = f"public_key_{self.node_id}.pem"
+        if os.path.exists(key_path):
+            with open(key_path, 'r') as f:
+                pub_key_pem = f.read()
+
         message = {
-            'type': 'node_announcement',
-            'node_id': self.node_id,
-            'host': self.host,
-            'port': self.port
+            'type':       'node_announcement',
+            'node_id':    self.node_id,
+            'host':       self.host,
+            'port':       self.port,
+            'public_key': pub_key_pem,  # <-- ключ передається автоматично
         }
 
         try:
-            sock.sendto(json.dumps(message).encode('utf-8'), (MULTICAST_GROUP, MULTICAST_PORT))
-
+            # Multicast UDP пакети мають обмеження розміру, використовуємо sendall через chunks
+            payload = json.dumps(message).encode('utf-8')
+            sock.sendto(payload, (MULTICAST_GROUP, MULTICAST_PORT))
         except Exception as e:
             print(f"Multicast announce error: {e}")
         finally:
