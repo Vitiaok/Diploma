@@ -130,14 +130,22 @@ Write-Host "  Network   : Auto-discovery (Multicast LAN)"
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Launch node in its own visible window
-# (visible window is REQUIRED — Windows Firewall needs to show a dialog on first run!)
-Write-Host "  Launching node in new window..." -ForegroundColor Gray
-Write-Host "  >>> If Windows asks about Firewall — click ALLOW! <<<" -ForegroundColor Yellow
+# ── Open Firewall ports (CRITICAL for peer discovery) ────────
+Write-Host "  Configuring Windows Firewall..." -ForegroundColor Gray
+foreach ($port in @(8080, 6000, 6001, 6002)) {
+    $ruleName = "BlockchainNode-$port"
+    $exists = netsh advfirewall firewall show rule name="$ruleName" 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        netsh advfirewall firewall add rule name="$ruleName" dir=in action=allow protocol=TCP localport=$port | Out-Null
+        Write-Host "      Port $port opened in Firewall." -ForegroundColor Green
+    }
+}
+Write-Host "      Firewall configured." -ForegroundColor Green
 
 # CRITICAL: set PYTHONPATH so embedded Python finds project modules
 $env:PYTHONPATH = $projectPath
 
+Write-Host "  Launching node..." -ForegroundColor Gray
 $proc = Start-Process -FilePath $PY `
     -ArgumentList @("app.py", $nodeName, "$WEB_PORT") `
     -WorkingDirectory $projectPath `
