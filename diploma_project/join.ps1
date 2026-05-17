@@ -65,10 +65,24 @@ Write-Host "[3/4] Installing Python dependencies..." -ForegroundColor Yellow
 $reqFile = Join-Path $projectPath "requirements.txt"
 if (Test-Path $reqFile) {
     python -m pip install -r $reqFile -q
-    Write-Host "      Dependencies installed!" -ForegroundColor Green
+    Write-Host "      Dependencies installed from requirements.txt!" -ForegroundColor Green
 } else {
-    Write-Host "      WARNING: requirements.txt not found, skipping." -ForegroundColor Yellow
+    Write-Host "      requirements.txt not found, installing core packages..." -ForegroundColor Yellow
 }
+
+# Always ensure core packages are present (fallback)
+python -m pip install flask cryptography netifaces-plus -q
+Write-Host "      Core packages verified." -ForegroundColor Green
+
+# Quick import test
+$testResult = python -c "import flask, cryptography, netifaces; print('OK')" 2>&1
+if ($testResult -ne "OK") {
+    Write-Host "      ERROR: Package import failed: $testResult" -ForegroundColor Red
+    Write-Host "      Try running: pip install flask cryptography netifaces-plus" -ForegroundColor Yellow
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+Write-Host "      Import test passed!" -ForegroundColor Green
 
 # ── Step 4: Start the node ───────────────────────────────────
 Write-Host "[4/4] Setting up your node..." -ForegroundColor Yellow
