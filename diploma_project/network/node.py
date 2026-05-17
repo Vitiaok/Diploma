@@ -379,12 +379,16 @@ class Node:
         return None
     
     def multicast_listen(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(('', MULTICAST_PORT))
-        group = socket.inet_aton(MULTICAST_GROUP)
-        mreq = struct.pack('4sL', group, socket.INADDR_ANY)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(('', MULTICAST_PORT))
+            group = socket.inet_aton(MULTICAST_GROUP)
+            mreq = struct.pack('4sL', group, socket.INADDR_ANY)
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        except OSError as e:
+            print(f"[Multicast] Not available on this interface ({e}). Auto-discovery disabled.")
+            return  # Node still works — peers can be added via API
 
         while self.running:
             try:
@@ -437,9 +441,10 @@ class Node:
         }
 
         try:
-            # Multicast UDP пакети мають обмеження розміру, використовуємо sendall через chunks
             payload = json.dumps(message).encode('utf-8')
             sock.sendto(payload, (MULTICAST_GROUP, MULTICAST_PORT))
+        except OSError:
+            pass  # Multicast not available on this network — silently ignore
         except Exception as e:
             print(f"Multicast announce error: {e}")
         finally:

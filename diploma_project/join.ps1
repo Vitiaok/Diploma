@@ -77,13 +77,16 @@ try {
 # Extract archive
 Expand-Archive -Path $zipPath -DestinationPath $INSTALL_DIR -Force
 
-# The zip extracts as "Diploma-main/" — find it and look for diploma_project inside
-$repoRoot = Get-ChildItem $INSTALL_DIR -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+# The zip extracts as "Diploma-main/" — find it specifically (not the python/ folder!)
+$repoRoot = Get-ChildItem $INSTALL_DIR -Directory | Where-Object { $_.Name -like "Diploma*" } | Select-Object -First 1
+if (-not $repoRoot) {
+    # Fallback: pick newest folder that is NOT the python dir
+    $repoRoot = Get-ChildItem $INSTALL_DIR -Directory | Where-Object { $_.Name -ne "python" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+}
 
 # Try to find diploma_project subfolder
 $projectPath = Join-Path $repoRoot.FullName "diploma_project"
 if (-not (Test-Path $projectPath)) {
-    # Maybe the code is directly in the root
     $projectPath = $repoRoot.FullName
 }
 
