@@ -70,7 +70,7 @@ if (Test-Path $reqFile) {
     Write-Host "      WARNING: requirements.txt not found, skipping." -ForegroundColor Yellow
 }
 
-# ── Step 4: Choose node name and start ───────────────────────
+# ── Step 4: Start the node ───────────────────────────────────
 Write-Host "[4/4] Setting up your node..." -ForegroundColor Yellow
 Write-Host ""
 $nodeName = Read-Host "  Enter your node name (e.g. 'alice', 'laptop-john')"
@@ -82,25 +82,21 @@ Write-Host ""
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host "  Node name : $nodeName"
 Write-Host "  Web UI    : http://localhost:$WEB_PORT"
-Write-Host "  Auto-discovery via local network (Multicast)"
+Write-Host "  Network   : Auto-discovery (Multicast LAN)"
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Open browser after short delay
-Start-Sleep -Seconds 2
-Start-Process "http://localhost:$WEB_PORT"
+# Launch node in a new visible window
+Write-Host "  Launching node..." -ForegroundColor Gray
+$args = "app.py", $nodeName, "$WEB_PORT"
+Start-Process -FilePath "python" `
+    -ArgumentList $args `
+    -WorkingDirectory $projectPath
 
-# Run the node in a NEW window (so we can poll for readiness)
-Write-Host "  Starting node process..." -ForegroundColor Gray
-$proc = Start-Process -FilePath "python" `
-    -ArgumentList "app.py $nodeName $WEB_PORT" `
-    -WorkingDirectory $projectPath `
-    -PassThru  # returns process object so we can track it
-
-# Poll until Flask server responds (max 30 seconds)
-Write-Host "  Waiting for server" -NoNewline -ForegroundColor Yellow
+# Poll until Flask responds (max 40 seconds)
+Write-Host "  Waiting for server to start" -NoNewline -ForegroundColor Yellow
 $ready = $false
-for ($i = 0; $i -lt 30; $i++) {
+for ($i = 0; $i -lt 40; $i++) {
     Start-Sleep -Seconds 1
     Write-Host "." -NoNewline -ForegroundColor Yellow
     try {
@@ -111,16 +107,16 @@ for ($i = 0; $i -lt 30; $i++) {
     } catch {}
 }
 
+Write-Host ""
 if ($ready) {
-    Write-Host " Ready!" -ForegroundColor Green
+    Write-Host "  Server is READY!" -ForegroundColor Green
     Start-Process "http://localhost:$WEB_PORT"
-    Write-Host ""
-    Write-Host "  Node is running! Browser opened at http://localhost:$WEB_PORT" -ForegroundColor Green
-    Write-Host "  Close the node window to stop." -ForegroundColor DarkGray
+    Write-Host "  Browser opened at http://localhost:$WEB_PORT" -ForegroundColor Cyan
+    Write-Host "  To stop the node: close the Python window." -ForegroundColor DarkGray
 } else {
-    Write-Host " Timeout." -ForegroundColor Yellow
-    Write-Host "  Server took too long. Try opening http://localhost:$WEB_PORT manually." -ForegroundColor Yellow
+    Write-Host "  Server did not respond in 40s." -ForegroundColor Yellow
+    Write-Host "  Check the Python window for errors." -ForegroundColor Yellow
+    Write-Host "  Then try: http://localhost:$WEB_PORT" -ForegroundColor DarkGray
 }
 
-# Keep this window open
-Read-Host "`nPress Enter to close this installer window"
+Read-Host "`nPress Enter to close this window"
