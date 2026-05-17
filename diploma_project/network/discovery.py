@@ -58,10 +58,10 @@ class NetworkDiscovery:
                         discovered_nodes[node_id] = (ip, port)
                         
                         
-            except (socket.timeout, ConnectionRefusedError):
-                pass
+            except (socket.timeout, ConnectionRefusedError, OSError):
+                pass  # Unreachable host or invalid address — expected on some network interfaces
             except Exception as e:
-                print(f"Error scanning {ip}:{port}: {e}")
+                pass  # Suppress all scan noise
 
        
         threads = []
