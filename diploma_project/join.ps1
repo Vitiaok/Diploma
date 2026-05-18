@@ -117,22 +117,34 @@ Write-Host "      Import test passed!" -ForegroundColor Green
 # ── Step 4: Start the node ───────────────────────────────────
 Write-Host "[4/4] Setting up your node..." -ForegroundColor Yellow
 Write-Host ""
-$nodeName = Read-Host "  Enter your node name (e.g. 'alice', 'laptop-john')"
-if ([string]::IsNullOrWhiteSpace($nodeName)) {
-    $nodeName = "node-" + $env:COMPUTERNAME.ToLower() -replace '[^a-z0-9-]', ''
+
+# Auto-detect free port in PowerShell to match Python's choice
+$WEB_PORT = 8080
+while ($true) {
+    $connection = New-Object System.Net.Sockets.TcpClient
+    try {
+        $connection.Connect("127.0.0.1", $WEB_PORT)
+        # Port is in use, try next
+        $connection.Close()
+        $WEB_PORT++
+    } catch {
+        # Port is free!
+        break
+    }
 }
 
-Write-Host ""
+$nodeName = "node-" + $env:COMPUTERNAME.ToLower() -replace '[^a-z0-9-]', ''
+
 Write-Host "=================================================" -ForegroundColor Cyan
-Write-Host "  Node name : $nodeName"
 Write-Host "  Web UI    : http://localhost:$WEB_PORT"
-Write-Host "  Network   : Auto-discovery (Multicast LAN)"
+Write-Host "  Network   : Auto-discovery (HTTP Scanning LAN)"
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host ""
 
 # ── Open Firewall ports (CRITICAL for peer discovery) ────────
 Write-Host "  Configuring Windows Firewall..." -ForegroundColor Gray
-foreach ($port in @(8080, 6000, 6001, 6002)) {
+# Open ports 8080-8089 for web, and 6000-6009 for P2P transfers
+foreach ($port in @(8080, 8081, 8082, 8083, 8084, 8085, 6000, 6001, 6002, 6003, 6004, 6005)) {
     $ruleName = "BlockchainNode-$port"
     $exists = netsh advfirewall firewall show rule name="$ruleName" 2>$null
     if ($LASTEXITCODE -ne 0) {
@@ -147,7 +159,7 @@ $env:PYTHONPATH = $projectPath
 
 Write-Host "  Launching node..." -ForegroundColor Gray
 $proc = Start-Process -FilePath $PY `
-    -ArgumentList @("app.py", $nodeName, "$WEB_PORT") `
+    -ArgumentList @("app.py") `
     -WorkingDirectory $projectPath `
     -PassThru
 
@@ -165,7 +177,7 @@ for ($i = 0; $i -lt 60; $i++) {
         Write-Host "  Node window closed unexpectedly (crash)." -ForegroundColor Red
         Write-Host "  Run manually to see error:" -ForegroundColor Yellow
         Write-Host "  cd '$projectPath'" -ForegroundColor Gray
-        Write-Host "  & '$PY' app.py $nodeName $WEB_PORT" -ForegroundColor Gray
+        Write-Host "  & '$PY' app.py" -ForegroundColor Gray
         Read-Host "`nPress Enter to exit"; exit 1
     }
 
