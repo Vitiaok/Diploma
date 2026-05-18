@@ -46,7 +46,7 @@ class NetworkDiscovery:
         def try_http(ip: str):
             if ip == self.my_ip:
                 return
-            for port in [8080, 8081, 8082]:
+            for port in range(8080, 8090):  # Scan 10 standard web ports
                 try:
                     url = f"http://{ip}:{port}/api/status"
                     with urllib.request.urlopen(url, timeout=0.8) as resp:
