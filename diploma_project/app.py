@@ -190,5 +190,16 @@ if __name__ == "__main__":
         web_port = int(sys.argv[2]) if len(sys.argv) > 2 else 8080
 
     print(f"Starting node '{node_id}' -> http://localhost:{web_port}")
+    
+    # Auto-open browser in a separate thread once server starts
+    def _open_browser():
+        time.sleep(1.5)
+        import webbrowser
+        try:
+            webbrowser.open(f"http://localhost:{web_port}")
+        except Exception:
+            pass
+            
+    threading.Thread(target=_open_browser, daemon=True).start()
     threading.Thread(target=_start_node, args=(node_id,), daemon=True).start()
     app.run(host="0.0.0.0", port=web_port, debug=False, use_reloader=False)
