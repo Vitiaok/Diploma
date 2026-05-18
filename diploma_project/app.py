@@ -163,12 +163,31 @@ def api_send_file():
 # ── Entry point ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python app.py <node_id> [web_port]")
-        sys.exit(1)
+    import socket
 
-    node_id  = sys.argv[1]
-    web_port = int(sys.argv[2]) if len(sys.argv) > 2 else 8080
+    if len(sys.argv) < 2:
+        # Auto-detect free port and name
+        web_port = 8080
+        instance = 1
+        while web_port < 8200:  # Matches our HTTP port scan limit
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind(("0.0.0.0", web_port))
+                    break
+                except OSError:
+                    web_port += 1
+                    instance += 1
+        
+        hostname = socket.gethostname().lower()
+        # Clean hostname to alphanumeric only
+        hostname = "".join(c for c in hostname if c.isalnum())
+        node_id = f"{hostname}_node{instance}"
+        print(f"\n[AUTO] No arguments provided. Auto-starting node...")
+        print(f"[AUTO] Detected free port: {web_port}")
+        print(f"[AUTO] Generated unique node name: '{node_id}'\n")
+    else:
+        node_id  = sys.argv[1]
+        web_port = int(sys.argv[2]) if len(sys.argv) > 2 else 8080
 
     print(f"Starting node '{node_id}' -> http://localhost:{web_port}")
     threading.Thread(target=_start_node, args=(node_id,), daemon=True).start()
