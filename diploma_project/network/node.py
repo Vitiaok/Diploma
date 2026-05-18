@@ -467,9 +467,10 @@ class Node:
         
         filtered_peers = []
         for host, port in discovery_peers:
-            # Фільтруємо тільки себе (за портом, не за IP — бо можемо бути на тому ж хості)
             file_transfer_port = NetworkConfig._discovery.get_file_transfer_port(port)
-            if file_transfer_port == self.port:
+            # Filter ourselves out ONLY if both host (IP) and port match
+            is_own_host = (host == self.host or host == "127.0.0.1" or host == "localhost")
+            if is_own_host and file_transfer_port == self.port:
                 print(f"Skipping own port: {host}:{file_transfer_port}")
                 continue
             filtered_peers.append((host, file_transfer_port))

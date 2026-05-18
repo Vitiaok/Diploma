@@ -32,25 +32,11 @@ class NetworkConfig:
     
     @classmethod
     def get_peers(cls, node_id):
-        
         try:
             if not cls._discovery:
                 raise RuntimeError("NetworkConfig not initialized. Call initialize() first.")
                 
-            all_peers = cls._discovery.get_peers(node_id)
-            
-            own_ip = cls._discovery._get_my_ip()
-            
-            
-            filtered_peers = [
-                (host, port) for host, port in all_peers 
-                if host != own_ip and 
-                host != 'localhost' and 
-                host != '127.0.0.1'
-            ]
-            
-            return filtered_peers
-            
+            return cls._discovery.get_peers(node_id)
         except Exception as e:
             print(f"Error getting peers for {node_id}: {e}")
             raise
