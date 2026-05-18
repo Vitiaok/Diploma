@@ -191,9 +191,10 @@ if __name__ == "__main__":
 
     print(f"Starting node '{node_id}' -> http://localhost:{web_port}")
     
-    # Auto-open browser in a separate thread once server starts
+    # Auto-open browser only when the node is fully ready
     def _open_browser():
-        time.sleep(1.5)
+        while _node is None:
+            time.sleep(0.1)
         import webbrowser
         try:
             webbrowser.open(f"http://localhost:{web_port}")
