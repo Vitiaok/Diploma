@@ -268,7 +268,7 @@ async function fetchPeers(){
     const sel = document.getElementById('target-peers');
     if (sel) {
       const selected = Array.from(sel.selectedOptions).map(o=>o.value);
-      sel.innerHTML = peersData.map(p=>`<option value="${p.host}:${p.port}" ${selected.includes(`${p.host}:${p.port}`) ? 'selected' : ''}>${p.host}:${p.port}</option>`).join('');
+      sel.innerHTML = peersData.map(p=>`<option value="${p.host}:${p.port}" ${selected.includes(`${p.host}:${p.port}`) ? 'selected' : ''}>${p.node_id} (${p.host})</option>`).join('');
     }
   }catch(e){}
 }
@@ -364,8 +364,8 @@ function renderPeers(){
     <div class="peer-card">
       <div class="peer-dot"></div>
       <div>
-        <div class="peer-addr">${p.host}</div>
-        <div style="font-size:11px;color:var(--muted)">port ${p.port}</div>
+        <div class="peer-addr">${p.node_id}</div>
+        <div style="font-size:11px;color:var(--muted)">${p.host}:${p.port}</div>
       </div>
     </div>
   `).join('');

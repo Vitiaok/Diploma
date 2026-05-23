@@ -89,7 +89,12 @@ def api_chain():
 def api_peers():
     if _node is None:
         return jsonify([])
-    return jsonify([{"host": h, "port": p} for h, p in _node.peers])
+    result = []
+    for h, p in _node.peers:
+        node_id = NetworkConfig.get_node_id_by_transfer_addr(h, p)
+        display_id = node_id if node_id else "Unknown Node"
+        result.append({"host": h, "port": p, "node_id": display_id})
+    return jsonify(result)
 
 
 @app.route("/api/metrics")
