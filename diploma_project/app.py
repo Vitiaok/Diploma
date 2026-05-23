@@ -113,28 +113,6 @@ def api_files():
     return jsonify(sorted(files, key=lambda x: x["modified"], reverse=True))
 
 
-@app.route("/api/add-peer", methods=["POST"])
-def api_add_peer():
-    """Manually add a peer by host:port (fallback when multicast is unavailable)."""
-    data = request.get_json()
-    host = data.get("host", "").strip()
-    port = data.get("port")
-    if not host or not port:
-        return jsonify({"success": False, "error": "host and port required"}), 400
-    try:
-        port = int(port)
-    except (ValueError, TypeError):
-        return jsonify({"success": False, "error": "port must be a number"}), 400
-
-    if _node is None:
-        return jsonify({"success": False, "error": "Node not ready"}), 503
-
-    peer = (host, port)
-    if peer not in _node.peers:
-        _node.peers.append(peer)
-
-    return jsonify({"success": True, "peer": f"{host}:{port}", "total_peers": len(_node.peers)})
-
 
 @app.route("/api/send-file", methods=["POST"])
 def api_send_file():
