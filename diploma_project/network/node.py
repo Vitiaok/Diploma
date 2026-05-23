@@ -137,8 +137,7 @@ class Node:
 
     def broadcast_block_for_validation(self, block):
         if not self.peers:
-            print("No peers to validate with, adding to local chain directly.")
-            self.chain.add_validated_block(block)
+            print("Block validation failed: Network is empty, consensus impossible. Block discarded.")
             return
 
         block_data = json.dumps({
