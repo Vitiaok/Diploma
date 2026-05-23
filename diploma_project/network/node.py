@@ -136,6 +136,11 @@ class Node:
     
 
     def broadcast_block_for_validation(self, block):
+        if not self.peers:
+            print("No peers to validate with, adding to local chain directly.")
+            self.chain.add_validated_block(block)
+            return
+
         block_data = json.dumps({
             'type': 'validate_block',
             'block': block.dict,
@@ -146,9 +151,6 @@ class Node:
         validated = False  
         
         for peer_host, peer_port in self.peers:
-            if validated:  
-                break
-                
             connected = False
             retries = 3  
             
@@ -162,10 +164,8 @@ class Node:
                         print(f"Validation response from {peer_host}:{peer_port}: {response}")
                         validation_responses.append(response)
                         
-                        
                         successful_validations = sum(1 for res in validation_responses 
                                                 if res.get('type') == 'validation_success')
-                        
                         
                         if not validated and successful_validations > len(self.peers) // 2:
                             print("Block received majority validation, adding to local chain.")
