@@ -101,6 +101,9 @@ class Node:
                             'validator': self.node_id,
                             'reason': reason
                         }
+                        if 'missing_previous_blocks' in reason or 'previous_hash_mismatch' in reason:
+                            print(f"Validation failed due to desync ({reason}). Triggering background sync...")
+                            threading.Thread(target=self.sync_with_peers, daemon=True).start()
                 
                 client_socket.sendall(json.dumps(response).encode('utf-8'))
                 
@@ -138,7 +141,7 @@ class Node:
     def broadcast_block_for_validation(self, block):
         if not self.peers:
             print("Block validation failed: Network is empty, consensus impossible. Block discarded.")
-            return
+            return False, False
 
         block_data = json.dumps({
             'type': 'validate_block',
@@ -148,6 +151,7 @@ class Node:
 
         validation_responses = []
         validated = False  
+        needs_sync = False
         
         for peer_host, peer_port in self.peers:
             connected = False
@@ -163,6 +167,9 @@ class Node:
                         print(f"Validation response from {peer_host}:{peer_port}: {response}")
                         validation_responses.append(response)
                         
+                        if response.get('type') == 'validation_failed' and 'previous_hash_mismatch' in str(response.get('reason', '')):
+                            needs_sync = True
+
                         successful_validations = sum(1 for res in validation_responses 
                                                 if res.get('type') == 'validation_success')
                         
@@ -182,6 +189,9 @@ class Node:
 
         if not validated:
             print("Block validation failed: Could not get majority validation from peers.")
+            return False, needs_sync
+            
+        return True, needs_sync
 
     def start_server(self):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -201,15 +211,30 @@ class Node:
                     print(f"Server error: {e}")
 
     def create_and_broadcast_block(self, data):
-        private_key = self.load_private_key()
-        with self.metrics.measure("pow_time"):
-            new_block = self.chain.create_block(data, private_key)
-        signature = sign_data(private_key, new_block.hash)
-        new_block.signature = signature
-        self.logger.info("block_created", {"hash": new_block.hash[:16]})
-        with self.metrics.measure("consensus_time", {"peers": len(self.peers)}):
-            self.broadcast_block_for_validation(new_block)
+        max_retries = 3
+        for attempt in range(max_retries):
+            private_key = self.load_private_key()
+            with self.metrics.measure("pow_time"):
+                new_block = self.chain.create_block(data, private_key)
+            signature = sign_data(private_key, new_block.hash)
+            new_block.signature = signature
+            self.logger.info("block_created", {"hash": new_block.hash[:16], "attempt": attempt + 1})
+            
+            with self.metrics.measure("consensus_time", {"peers": len(self.peers)}):
+                success, needs_sync = self.broadcast_block_for_validation(new_block)
+                
+            if success:
+                self.metrics.save_csv()
+                return True
+                
+            if needs_sync:
+                print("Chain out of sync detected during broadcast. Forcing sync and retrying...")
+                self.sync_with_peers()
+            else:
+                break
+                
         self.metrics.save_csv()
+        return False
 
 
     def user_interface(self):

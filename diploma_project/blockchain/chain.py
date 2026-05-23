@@ -129,6 +129,10 @@ class Chain:
             if block.previous_hash != self.blockchain[-1].hash:
                 print(f"Previous hash does not match: expected {self.blockchain[-1].hash}, got {block.previous_hash}")
                 return False, f"previous_hash_mismatch (expected {self.blockchain[-1].hash}, got {block.previous_hash})"
+        else:
+            if block.previous_hash != "0" and block.previous_hash is not None:
+                print(f"Missing previous blocks: expected genesis hash '0', got {block.previous_hash}")
+                return False, "missing_previous_blocks"
 
         
         if block.hash != block.calculate_hash():
