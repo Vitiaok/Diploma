@@ -292,6 +292,11 @@ class Chain:
             if local_hashes[i] != peer_hashes[i]:
                 divergence_point = i
                 break
+                
+        # If no divergence in common prefix, but peer is strictly longer, 
+        # the divergence is right after our last block.
+        if divergence_point == -1 and len(peer_hashes) > len(local_hashes):
+            divergence_point = len(local_hashes)
         
         if divergence_point != -1:
             print(f"Found chain divergence at block {divergence_point}")
