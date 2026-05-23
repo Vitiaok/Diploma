@@ -97,13 +97,16 @@ class FileHandler:
             })
 
             peers_to_send = self.node.peers
+            print(f"DEBUG: All available peers: {peers_to_send}")
             if targets:
+                print(f"DEBUG: Filtering for targets: {targets}")
                 target_tuples = []
                 for t in targets:
                     parts = t.split(":")
                     if len(parts) == 2:
                         target_tuples.append((parts[0], int(parts[1])))
                 peers_to_send = [p for p in peers_to_send if p in target_tuples]
+                print(f"DEBUG: Filtered peers_to_send: {peers_to_send}")
 
             if not peers_to_send:
                 self.logger.warning("no_peers")

@@ -62,8 +62,8 @@ def api_status():
     pub_key = None
     key_path = f"public_key_{_node.node_id}.pem"
     if os.path.exists(key_path):
-        with open(key_path, 'rb') as f:
-            pub_key = f.read().decode('utf-8')
+        with open(key_path, 'r') as f:
+            pub_key = f.read()
 
     return jsonify({
         "status":       "running",
@@ -130,8 +130,12 @@ def api_send_file():
     if "targets" in request.form:
         try:
             targets = json.loads(request.form["targets"])
+            print(f"DEBUG: Received targets from UI: {targets}")
         except Exception as e:
+            print(f"DEBUG: Failed to parse targets: {e}")
             pass
+    else:
+        print("DEBUG: No targets specified in request.form, defaulting to broadcast")
 
     def _send():
         _node.file_handler.send_file(tmp_path, targets=targets)
