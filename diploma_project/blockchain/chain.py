@@ -232,6 +232,23 @@ class Chain:
             if current_block.hash[:len(HASH_TARGET)] != HASH_TARGET:
                 validation_errors.append('invalid_proof_of_work')
                 
+            # Verify cryptographic signature if data contains sender_node
+            try:
+                if isinstance(current_block.data, str):
+                    data_dict = json.loads(current_block.data)
+                else:
+                    data_dict = current_block.data
+                
+                sender_id = data_dict.get('sender_node')
+                if sender_id:
+                    is_sig_valid, sig_reason = self.validate_block_signature(current_block, sender_id)
+                    if not is_sig_valid:
+                        validation_errors.append(f'invalid_signature: {sig_reason}')
+            except Exception:
+                # If we can't parse it or it's an old block without sender_node, 
+                # we just skip signature verification for backward compatibility.
+                pass
+                
             if validation_errors:
                 invalid_blocks.append({
                     'index': i,
