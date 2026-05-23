@@ -26,6 +26,7 @@ wheels/
 
 # Blockchain Data (локальні копії ланцюга та пірів)
 blockchain_*.json
+blockchain.json
 peers.json
 whitelist.json
 
