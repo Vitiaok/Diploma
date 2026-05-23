@@ -154,6 +154,13 @@ def api_send_file():
     return jsonify({"success": True, "filename": filename})
 
 
+@app.route("/api/download/<filename>")
+def api_download_file(filename):
+    secure_name = secure_filename(filename)
+    storage_dir = os.path.abspath("node_files")
+    return send_from_directory(storage_dir, secure_name, as_attachment=True)
+
+
 # ── Entry point ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

@@ -377,12 +377,15 @@ function renderFiles(){
   const icons={'pdf':'📄','png':'🖼','jpg':'🖼','jpeg':'🖼','zip':'📦','mp4':'🎬','txt':'📝','py':'🐍'};
   el.innerHTML=filesData.map(f=>{
     const ext=f.name.split('.').pop().toLowerCase();
-    return `<div class="file-item">
-      <div class="file-icon">${icons[ext]||'📁'}</div>
-      <div>
-        <div class="file-name">${f.name}</div>
-        <div class="file-size">${fmt(f.size)} · ${fmtTime(f.modified)}</div>
+    return `<div class="file-item" style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div class="file-icon">${icons[ext]||'📁'}</div>
+        <div>
+          <div class="file-name">${f.name}</div>
+          <div class="file-size">${fmt(f.size)} · ${fmtTime(f.modified)}</div>
+        </div>
       </div>
+      <a href="/api/download/${encodeURIComponent(f.name)}" download class="expand-btn" style="text-decoration:none; padding: 4px 8px; font-size: 12px; background: #3b82f6; color: white; border-radius: 4px; border: none; cursor: pointer; transition: background 0.2s;">Download</a>
     </div>`;
   }).join('');
 }
