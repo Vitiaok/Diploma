@@ -407,6 +407,7 @@ class Node:
                 if peer_info not in self.peers:
                     self.peers.append(peer_info)
                     print(f"[P2P] New peer discovered: {peer_id} at {peer_host}:{peer_port}")
+                    threading.Thread(target=self.sync_with_peers, daemon=True).start()
 
                 # Зберігаємо публічний ключ піра, якщо він присутній в оголошенні
                 pub_key_pem = message.get('public_key')
@@ -455,12 +456,15 @@ class Node:
         while self.running:
             self.multicast_announce()
             
-            # Sync HTTP-discovered peers into our active peers list
+            new_peer_added = False
             for peer in self._get_file_transfer_peers():
                 if peer not in self.peers:
                     self.peers.append(peer)
                     print(f"[P2P] Discovered peer via HTTP: {peer[0]}:{peer[1]}")
-                    
+                    new_peer_added = True
+            
+            if new_peer_added:
+                threading.Thread(target=self.sync_with_peers, daemon=True).start()
             time.sleep(10)  
 
     def _get_file_transfer_peers(self):

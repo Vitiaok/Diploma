@@ -296,10 +296,16 @@ class Chain:
         if divergence_point != -1:
             print(f"Found chain divergence at block {divergence_point}")
             
-            if len(peer_blocks) >= len(self.blockchain):
-                
+            replace = False
+            if len(peer_blocks) > len(self.blockchain):
+                replace = True
+            elif len(peer_blocks) == len(self.blockchain):
+                # Deterministic tie-breaker: compare the hashes of the divergent block
+                if peer_hashes[divergence_point] > local_hashes[divergence_point]:
+                    replace = True
+            
+            if replace:
                 self.blockchain = self.blockchain[:divergence_point]
-                
                 self.blockchain.extend(peer_blocks[divergence_point:])
                 self.save_chain()
                 print(f"Chain has been fixed from block {divergence_point}")
