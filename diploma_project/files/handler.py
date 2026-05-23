@@ -56,19 +56,16 @@ class FileHandler:
 
     # ── Отримати публічний ключ peers (якщо є) ─────────────────────────────
 
-    def _get_peer_public_key(self, peer_host: str):
+    def _get_peer_public_key(self, node_id: str):
         """Завантажити публічний ключ peer з файлу (якщо є)."""
         from cryptography.hazmat.primitives import serialization
-        for node_id, (host, _) in self.node.__class__.__dict__.items():
-            pass  # placeholder — у реальній мережі публічний ключ обмінюється при виявленні
-        # Пошук за збереженими public_key_*.pem
-        for fname in os.listdir("."):
-            if fname.startswith("public_key_") and fname.endswith(".pem"):
-                try:
-                    with open(fname, "rb") as f:
-                        return serialization.load_pem_public_key(f.read())
-                except Exception:
-                    continue
+        key_path = f"public_key_{node_id}.pem"
+        if os.path.exists(key_path):
+            try:
+                with open(key_path, "rb") as f:
+                    return serialization.load_pem_public_key(f.read())
+            except Exception:
+                pass
         return None
 
     # ── Відправка ──────────────────────────────────────────────────────────
@@ -84,10 +81,8 @@ class FileHandler:
                 aes_key = generate_aes_key()
                 encrypted_data = encrypt_file(file_path, aes_key)
 
-            # Wrapped AES key (RSA-OAEP) — для кожного peer своє, якщо є ключ
-            # Спрощено: передаємо AES-ключ у base64 (у продакшні — зашифрований RSA peer'а)
-            aes_key_b64 = base64.b64encode(aes_key).decode("utf-8")
-            metadata = FileTransfer.create_file_metadata(file_path, aes_key_b64)
+            # Створюємо метадані без ключа
+            metadata = FileTransfer.create_file_metadata(file_path, None)
             metadata["encrypted_size"] = len(encrypted_data)
 
             self.logger.info("send_start", {
@@ -113,12 +108,13 @@ class FileHandler:
                 return False
 
             with self.metrics.measure("broadcast_time"):
-                success = self._broadcast_encrypted(encrypted_data, metadata, peers_to_send)
+                success = self._broadcast_encrypted(encrypted_data, metadata, aes_key, peers_to_send)
 
             if success:
                 file_data = {
                     **metadata,
                     "sender_node": self.node.node_id,
+                    "receiver_nodes": [f"{p[0]}:{p[1]}" for p in peers_to_send],
                     "transfer_status": "completed",
                 }
                 self.node.create_and_broadcast_block(json.dumps(file_data))
@@ -133,11 +129,39 @@ class FileHandler:
             self.logger.error("send_exception", {"error": str(e)})
             return False
 
-    def _broadcast_encrypted(self, encrypted_data: bytes, metadata: dict, peers_to_send: list) -> bool:
+    def _broadcast_encrypted(self, encrypted_data: bytes, base_metadata: dict, aes_key: bytes, peers_to_send: list) -> bool:
         successful = 0
+        from network.config import NetworkConfig
+        from cryptography.hazmat.primitives.asymmetric import padding
+        from cryptography.hazmat.primitives import hashes
+
         for peer_host, peer_port in peers_to_send:
             try:
                 self.logger.debug("connect_peer", {"host": peer_host, "port": peer_port})
+                
+                # Знаходимо node_id для цього peer, щоб взяти правильний ключ
+                node_id = NetworkConfig.get_node_id_by_transfer_addr(peer_host, peer_port)
+                pub_key = self._get_peer_public_key(node_id) if node_id else None
+                
+                msg_metadata = base_metadata.copy()
+                msg_metadata["encrypted"] = True
+                
+                if pub_key:
+                    # Шифруємо AES ключ за допомогою RSA публічного ключа отримувача
+                    encrypted_aes = pub_key.encrypt(
+                        aes_key,
+                        padding.OAEP(
+                            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                            algorithm=hashes.SHA256(),
+                            label=None
+                        )
+                    )
+                    msg_metadata["aes_key_encrypted"] = base64.b64encode(encrypted_aes).decode("utf-8")
+                else:
+                    # Fallback (якщо ключа немає, надсилаємо без RSA-шифрування, але це небезпечно)
+                    self.logger.warning("no_pub_key_for_peer", {"peer": f"{peer_host}:{peer_port}"})
+                    msg_metadata["aes_key_encrypted"] = base64.b64encode(aes_key).decode("utf-8")
+
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.settimeout(FileTransfer.TRANSFER_TIMEOUT)
                     s.connect((peer_host, peer_port))
@@ -145,7 +169,7 @@ class FileHandler:
                     # 1. Метадані
                     msg = {
                         "type": "file_transfer",
-                        "metadata": metadata,
+                        "metadata": msg_metadata,
                         "sender_node": self.node.node_id,
                     }
                     s.sendall(json.dumps(msg).encode("utf-8"))
@@ -210,7 +234,25 @@ class FileHandler:
             # Розшифрування
             if is_encrypted and aes_key_b64:
                 with self.metrics.measure("decryption_time"):
-                    aes_key = base64.b64decode(aes_key_b64)
+                    encrypted_aes = base64.b64decode(aes_key_b64)
+                    
+                    try:
+                        from cryptography.hazmat.primitives.asymmetric import padding
+                        from cryptography.hazmat.primitives import hashes
+                        private_key = self.node.load_private_key()
+                        aes_key = private_key.decrypt(
+                            encrypted_aes,
+                            padding.OAEP(
+                                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                                algorithm=hashes.SHA256(),
+                                label=None
+                            )
+                        )
+                    except Exception as e:
+                        # Fallback (якщо ключ був відправлений у відкритому вигляді без RSA)
+                        self.logger.warning("rsa_decrypt_failed_fallback", {"error": str(e)})
+                        aes_key = encrypted_aes
+
                     with open(tmp_path, "rb") as f:
                         encrypted_data = f.read()
                     plaintext = decrypt_data(encrypted_data, aes_key)

@@ -29,6 +29,16 @@ class NetworkConfig:
         
         # Якщо вузла немає (що дивно), генеруємо помилку або повертаємо хоч щось
         return cls._discovery.my_ip, cls._discovery.DISCOVERY_PORT
+
+    @classmethod
+    def get_node_id_by_transfer_addr(cls, host, transfer_port):
+        if not cls._discovery:
+            return None
+        discovery_port = transfer_port - cls._discovery.FILE_TRANSFER_PORT_OFFSET
+        for nid, addr in cls._discovery.nodes.items():
+            if addr[1] == discovery_port and (addr[0] == host or addr[0] == "127.0.0.1" or host == "127.0.0.1"):
+                return nid
+        return None
     
     @classmethod
     def get_peers(cls, node_id):
