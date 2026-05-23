@@ -34,7 +34,6 @@ def _start_node(node_id: str):
     global _node
     try:
         NetworkConfig.initialize(node_id)
-        time.sleep(1)
         _node = Node(node_id)
         # Start all background threads — skip CLI user_interface()
         threading.Thread(target=NetworkConfig._discovery.start_discovery_server, args=(node_id,), daemon=True).start()

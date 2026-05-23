@@ -34,50 +34,68 @@ class NetworkDiscovery:
     WEB_PORT = 8080  # Flask port — always open, firewall already allowed it
 
     def discover_nodes(self) -> Dict[str, Tuple[str, int]]:
-        """Scan the LAN for nodes by probing /api/status on port 8080.
-        This works even when multicast is blocked, because Flask's port is
-        already allowed through Windows Firewall."""
+        """Fast LAN scan for nodes via /api/status.
+        Uses TCP socket pre-probe to skip closed ports instantly, with
+        selective port ranges and a hard global time deadline."""
         import urllib.request
 
         network_prefix = '.'.join(self.my_ip.split('.')[:-1]) + '.'
         discovered_nodes = {}
         lock = threading.Lock()
 
+        def is_port_open(ip: str, port: int, timeout=0.15) -> bool:
+            """Ultra-fast TCP probe — returns False instantly for closed ports."""
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(timeout)
+                    return s.connect_ex((ip, port)) == 0
+            except Exception:
+                return False
+
         def try_http(ip: str):
-            if ip == self.my_ip:
-                return
-            # Scan a wide range of common dev ports (200 ports). 
-            for port in range(8000, 8200):  
+            # Remote hosts: only check standard ports (8080-8085)
+            # Local machine: check wide range for multi-instance support
+            is_local = (ip == self.my_ip or ip == "127.0.0.1")
+            ports = range(8080, 8200) if is_local else range(8080, 8086)
+
+            for port in ports:
+                if not is_port_open(ip, port):
+                    continue
                 try:
                     url = f"http://{ip}:{port}/api/status"
-                    with urllib.request.urlopen(url, timeout=0.8) as resp:
+                    with urllib.request.urlopen(url, timeout=0.5) as resp:
                         data = json.loads(resp.read().decode())
                         node_id   = data.get("node_id")
                         node_host = data.get("host", ip)
-                        node_port = data.get("port")   # file-transfer port (e.g. 6000)
+                        node_port = data.get("port")
                         pub_key   = data.get("public_key")
                         if node_id and node_port:
                             discovery_port = node_port - self.FILE_TRANSFER_PORT_OFFSET
                             with lock:
                                 discovered_nodes[node_id] = (node_host, discovery_port)
                             print(f"[Discovery] Found node '{node_id}' at {node_host}:{node_port}")
-                            
-                            # Save/update public key for signature validation
                             if pub_key:
                                 key_path = f"public_key_{node_id}.pem"
-                                # Always overwrite — peer may have regenerated keys
                                 with open(key_path, "wb") as f:
                                     f.write(pub_key.encode("utf-8"))
                                 print(f"[Discovery] Saved public key for '{node_id}'")
                 except Exception:
-                    pass  # Host not running a node on this port — expected
+                    pass
 
-        threads = [threading.Thread(target=try_http, args=(network_prefix + str(i),))
-                   for i in range(1, 255)]
+        # Scan all LAN IPs + localhost (for multi-node on same machine)
+        ips = [network_prefix + str(i) for i in range(1, 255)] + ["127.0.0.1"]
+        threads = [threading.Thread(target=try_http, args=(ip,)) for ip in ips]
         for t in threads:
             t.start()
+
+        # Hard 3-second global deadline — never block startup longer than this
+        deadline = time.time() + 3.0
         for t in threads:
-            t.join(timeout=1.5)
+            remaining = deadline - time.time()
+            if remaining > 0:
+                t.join(timeout=remaining)
+            else:
+                break
 
         return discovered_nodes
 
@@ -115,10 +133,10 @@ class NetworkDiscovery:
         discovered = self.discover_nodes()
         self.nodes.update(discovered)
 
-        # Start periodic HTTP scan since app.py calls initialize_node directly
+        # Periodic re-scan every 10 seconds for fast peer detection
         def periodic_discovery():
             while self.running:
-                time.sleep(30)
+                time.sleep(10)
                 new_nodes = self.discover_nodes()
                 self.nodes.update(new_nodes)
 
@@ -188,7 +206,7 @@ class NetworkDiscovery:
         
         def periodic_discovery():
             while self.running:
-                time.sleep(30)  
+                time.sleep(10)
                 new_nodes = self.discover_nodes()
                 self.nodes.update(new_nodes)
         
