@@ -163,7 +163,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <div class="tab" id="tab-files">
   <div class="two-col">
     <div>
-      <div class="section-title">Send File</div>
+      <div class="section-title">Send File or .zip archive</div>
       
       <div style="margin-bottom: 16px;">
         <label style="font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px;">Target Peers (leave unselected to send to all):</label>
@@ -175,7 +175,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
         <div class="icon">📂</div>
         <p><strong>Click or drag & drop</strong></p>
-        <p>File will be encrypted with AES-256 and sent to selected peers</p>
+        <p>File (or .zip archive) will be encrypted with AES-256 and sent to selected peers</p>
         <input type="file" id="fileInput"/>
       </div>
       <div class="progress-wrap" id="prog-wrap">
