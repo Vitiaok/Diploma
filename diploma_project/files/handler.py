@@ -73,7 +73,7 @@ class FileHandler:
 
     # ── Відправка ──────────────────────────────────────────────────────────
 
-    def send_file(self, file_path: str) -> bool:
+    def send_file(self, file_path: str, targets: list = None) -> bool:
         try:
             if not os.path.exists(file_path):
                 self.logger.error("file_not_found", {"path": file_path})
@@ -96,12 +96,21 @@ class FileHandler:
                 "encrypted_size": len(encrypted_data),
             })
 
-            if not self.node.peers:
+            peers_to_send = self.node.peers
+            if targets:
+                target_tuples = []
+                for t in targets:
+                    parts = t.split(":")
+                    if len(parts) == 2:
+                        target_tuples.append((parts[0], int(parts[1])))
+                peers_to_send = [p for p in peers_to_send if p in target_tuples]
+
+            if not peers_to_send:
                 self.logger.warning("no_peers")
                 return False
 
             with self.metrics.measure("broadcast_time"):
-                success = self._broadcast_encrypted(encrypted_data, metadata)
+                success = self._broadcast_encrypted(encrypted_data, metadata, peers_to_send)
 
             if success:
                 file_data = {
@@ -121,9 +130,9 @@ class FileHandler:
             self.logger.error("send_exception", {"error": str(e)})
             return False
 
-    def _broadcast_encrypted(self, encrypted_data: bytes, metadata: dict) -> bool:
+    def _broadcast_encrypted(self, encrypted_data: bytes, metadata: dict, peers_to_send: list) -> bool:
         successful = 0
-        for peer_host, peer_port in self.node.peers:
+        for peer_host, peer_port in peers_to_send:
             try:
                 self.logger.debug("connect_peer", {"host": peer_host, "port": peer_port})
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

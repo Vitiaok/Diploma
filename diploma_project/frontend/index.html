@@ -164,10 +164,18 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="two-col">
     <div>
       <div class="section-title">Send File</div>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px;">Target Peers (leave unselected to send to all):</label>
+        <select id="target-peers" multiple style="width: 100%; background: #111827; border: 1px solid #2a3555; border-radius: 8px; padding: 8px; color: #e2e8f0; font-family: 'JetBrains Mono', monospace; font-size: 13px; min-height: 80px;">
+        </select>
+        <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">Hold Ctrl/Cmd to select multiple.</div>
+      </div>
+
       <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
         <div class="icon">📂</div>
         <p><strong>Click or drag & drop</strong></p>
-        <p>File will be encrypted with AES-256 and sent to all peers</p>
+        <p>File will be encrypted with AES-256 and sent to selected peers</p>
         <input type="file" id="fileInput"/>
       </div>
       <div class="progress-wrap" id="prog-wrap">
@@ -255,6 +263,13 @@ async function fetchPeers(){
     const r=await fetch('/api/peers');
     peersData=await r.json();
     renderPeers();
+    
+    // Update target peers select list
+    const sel = document.getElementById('target-peers');
+    if (sel) {
+      const selected = Array.from(sel.selectedOptions).map(o=>o.value);
+      sel.innerHTML = peersData.map(p=>`<option value="${p.host}:${p.port}" ${selected.includes(`${p.host}:${p.port}`) ? 'selected' : ''}>${p.host}:${p.port}</option>`).join('');
+    }
   }catch(e){}
 }
 
@@ -407,6 +422,15 @@ function handleFile(file){
 
   const fd=new FormData();
   fd.append('file',file);
+  
+  const sel = document.getElementById('target-peers');
+  if (sel) {
+    const targets = Array.from(sel.selectedOptions).map(o=>o.value);
+    if (targets.length > 0) {
+      fd.append('targets', JSON.stringify(targets));
+    }
+  }
+
   fetch('/api/send-file',{method:'POST',body:fd})
     .then(r=>r.json())
     .then(d=>{

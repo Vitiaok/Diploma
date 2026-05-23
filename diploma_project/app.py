@@ -125,9 +125,16 @@ def api_send_file():
     filename = secure_filename(f.filename)
     tmp_path = os.path.join(UPLOAD_TMP, filename)
     f.save(tmp_path)
+    
+    targets = None
+    if "targets" in request.form:
+        try:
+            targets = json.loads(request.form["targets"])
+        except Exception as e:
+            pass
 
     def _send():
-        _node.file_handler.send_file(tmp_path)
+        _node.file_handler.send_file(tmp_path, targets=targets)
         try:
             os.remove(tmp_path)
         except Exception:
