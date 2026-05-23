@@ -87,7 +87,8 @@ class Node:
                         'reason': 'duplicate_block'
                     }
                 else:
-                    if self.chain.validate_block(block, validator_id):
+                    is_valid, reason = self.chain.validate_block(block, validator_id)
+                    if is_valid:
                         response = {
                             'type': 'validation_success',
                             'block_hash': block.hash,
@@ -98,7 +99,7 @@ class Node:
                             'type': 'validation_failed',
                             'block_hash': block.hash,
                             'validator': self.node_id,
-                            'reason': 'validation_failed'
+                            'reason': reason
                         }
                 
                 client_socket.sendall(json.dumps(response).encode('utf-8'))

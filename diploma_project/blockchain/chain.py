@@ -82,28 +82,29 @@ class Chain:
                     padding.PKCS1v15(),
                     hashes.SHA256()
                 )
-                return True
+                return True, "valid_signature"
             except InvalidSignature:
                 print(f"Invalid signature for block from validator {validator_id}")
-                return False
+                return False, "invalid_signature"
 
         except Exception as e:
             print(f"Error validating signature: {e}")
-            return False
+            return False, f"signature_error: {str(e)}"
 
     def validate_block(self, block, validator_id):
         
         block_id = block.hash
 
         
-        if not self.is_valid_block(block):
-            print("Block failed basic validation")
-            return False
+        is_valid, reason = self.is_valid_block(block)
+        if not is_valid:
+            print(f"Block failed basic validation: {reason}")
+            return False, reason
 
-        
-        if not self.validate_block_signature(block, validator_id):
-            print("Block signature validation failed")
-            return False
+        is_sig_valid, sig_reason = self.validate_block_signature(block, validator_id)
+        if not is_sig_valid:
+            print(f"Block signature validation failed: {sig_reason}")
+            return False, sig_reason
 
         with self.lock:
             if block_id not in self.pending_blocks:
@@ -118,33 +119,33 @@ class Chain:
                 print(f"Block {block_id} has been validated and added to the chain")
                 del self.pending_blocks[block_id]
                 del self.validations[block_id]
-                return True
+                return True, "validated"
 
-        return False
+        return False, "insufficient_validations"
 
     def is_valid_block(self, block):
         
         if len(self.blockchain) > 0:
             if block.previous_hash != self.blockchain[-1].hash:
-                print("Previous hash does not match")
-                return False
+                print(f"Previous hash does not match: expected {self.blockchain[-1].hash}, got {block.previous_hash}")
+                return False, f"previous_hash_mismatch (expected {self.blockchain[-1].hash}, got {block.previous_hash})"
 
         
         if block.hash != block.calculate_hash():
             print("Hash calculation mismatch")
-            return False
+            return False, "hash_calculation_mismatch"
 
         
         if block.hash[:len(HASH_TARGET)] != HASH_TARGET:
             print("Hash does not meet target difficulty")
-            return False
+            return False, "insufficient_difficulty"
 
        
         if block.signature is None:
             print("Block has no signature")
-            return False
+            return False, "missing_signature"
 
-        return True
+        return True, "valid"
 
     def add_validated_block(self, block):
         
