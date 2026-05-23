@@ -34,40 +34,23 @@ class NetworkDiscovery:
     WEB_PORT = 8080  # Flask port — always open, firewall already allowed it
 
     def discover_nodes(self) -> Dict[str, Tuple[str, int]]:
-        """Scan the LAN for nodes by probing /api/status.
-        Uses fast TCP socket probing before sending HTTP requests, with selective
-        port ranges (local machine vs remote hosts) to guarantee sub-second startup.
-        """
+        """Scan the LAN for nodes by probing /api/status on port 8080.
+        This works even when multicast is blocked, because Flask's port is
+        already allowed through Windows Firewall."""
         import urllib.request
 
         network_prefix = '.'.join(self.my_ip.split('.')[:-1]) + '.'
         discovered_nodes = {}
         lock = threading.Lock()
 
-        # Helper to quickly check if a port is responsive
-        def is_port_open(ip: str, port: int, timeout=0.15) -> bool:
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.settimeout(timeout)
-                    return s.connect_ex((ip, port)) == 0
-            except Exception:
-                return False
-
         def try_http(ip: str):
-            # 1. Determine which ports to scan on this IP
-            # If scanning local machine (either my_ip or 127.0.0.1), scan 200 ports.
-            # If scanning a remote IP, scan only standard ports (8080-8085) to avoid network lag.
-            is_local = (ip == self.my_ip or ip == "127.0.0.1")
-            ports_to_scan = range(8000, 8200) if is_local else range(8080, 8086)
-
-            for port in ports_to_scan:
-                # 2. Fast check: only hit HTTP if TCP port is actually open
-                if not is_port_open(ip, port):
-                    continue
-
+            if ip == self.my_ip:
+                return
+            # Scan a wide range of common dev ports (200 ports). 
+            for port in range(8000, 8200):  
                 try:
                     url = f"http://{ip}:{port}/api/status"
-                    with urllib.request.urlopen(url, timeout=0.5) as resp:
+                    with urllib.request.urlopen(url, timeout=0.8) as resp:
                         data = json.loads(resp.read().decode())
                         node_id   = data.get("node_id")
                         node_host = data.get("host", ip)
@@ -79,31 +62,22 @@ class NetworkDiscovery:
                                 discovered_nodes[node_id] = (node_host, discovery_port)
                             print(f"[Discovery] Found node '{node_id}' at {node_host}:{node_port}")
                             
-                            # Save public key for signature validation
+                            # Save/update public key for signature validation
                             if pub_key:
                                 key_path = f"public_key_{node_id}.pem"
-                                if not __import__("os").path.exists(key_path):
-                                    with open(key_path, "w") as f:
-                                        f.write(pub_key)
-                                    print(f"[Discovery] Saved public key for '{node_id}'")
+                                # Always overwrite — peer may have regenerated keys
+                                with open(key_path, "wb") as f:
+                                    f.write(pub_key.encode("utf-8"))
+                                print(f"[Discovery] Saved public key for '{node_id}'")
                 except Exception:
-                    pass
+                    pass  # Host not running a node on this port — expected
 
-        # We also scan 127.0.0.1 to find nodes running on the same machine!
-        ips_to_scan = [network_prefix + str(i) for i in range(1, 255)] + ["127.0.0.1"]
-        
-        threads = [threading.Thread(target=try_http, args=(ip,)) for ip in ips_to_scan]
+        threads = [threading.Thread(target=try_http, args=(network_prefix + str(i),))
+                   for i in range(1, 255)]
         for t in threads:
             t.start()
-            
-        # Join all threads with a hard global deadline of 2.0 seconds
-        deadline = time.time() + 2.0
         for t in threads:
-            left = deadline - time.time()
-            if left > 0:
-                t.join(timeout=left)
-            else:
-                break
+            t.join(timeout=1.5)
 
         return discovered_nodes
 
