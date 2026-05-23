@@ -155,11 +155,12 @@ class Node:
         
         for peer_host, peer_port in self.peers:
             connected = False
-            retries = 3  
+            retries = 1  
             
             while not connected and retries > 0:
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.settimeout(3.0)
                         s.connect((peer_host, peer_port))
                         s.sendall(block_data.encode('utf-8'))
                         
@@ -321,6 +322,7 @@ class Node:
         for peer_host, peer_port in self.peers:
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(3.0)
                     s.connect((peer_host, peer_port))
                     
                     request = {
