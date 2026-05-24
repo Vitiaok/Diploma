@@ -32,6 +32,7 @@ class Node:
         self.file_handler = FileHandler(self)
         self.force_sync_required = False
         self.peer_connections = {}
+        self.peer_failures = {}
         self.connection_lock = threading.Lock()
         self.logger = NodeLogger(node_id)
         self.metrics = MetricsCollector(node_id)
@@ -67,6 +68,24 @@ class Node:
                 public_keys[node_id] = public_key
     
         return public_keys
+
+    def _handle_peer_failure(self, peer_host, peer_port, error_msg):
+        peer = (peer_host, peer_port)
+        self.peer_failures[peer] = self.peer_failures.get(peer, 0) + 1
+        failures = self.peer_failures[peer]
+        print(f"Failed to connect to peer {peer_host}:{peer_port} ({error_msg}). Failure count: {failures}/3")
+        
+        if failures >= 3:
+            if peer in self.peers:
+                self.peers.remove(peer)
+                print(f"Peer {peer_host}:{peer_port} removed from active peers due to 3 consecutive failures.")
+            if peer in self.peer_failures:
+                del self.peer_failures[peer]
+
+    def _handle_peer_success(self, peer_host, peer_port):
+        peer = (peer_host, peer_port)
+        if peer in self.peer_failures:
+            self.peer_failures[peer] = 0
 
     def handle_client(self, client_socket, addr):
         try:
@@ -153,7 +172,7 @@ class Node:
         validated = False  
         needs_sync = False
         
-        for peer_host, peer_port in self.peers:
+        for peer_host, peer_port in self.peers.copy():
             connected = False
             retries = 1  
             
@@ -180,10 +199,10 @@ class Node:
                             validated = True  
                         
                         connected = True
+                        self._handle_peer_success(peer_host, peer_port)
                     
                 except Exception as e:
-                    print(f"Failed to send block to {peer_host}:{peer_port}: {e}")
-                    print(f"Retries left: {retries}")
+                    self._handle_peer_failure(peer_host, peer_port, str(e))
                     retries -= 1
                     if retries > 0:
                         time.sleep(5)
@@ -319,7 +338,7 @@ class Node:
                     print(f"Could not obtain valid block from peers for index {block_index}")
         
         
-        for peer_host, peer_port in self.peers:
+        for peer_host, peer_port in self.peers.copy():
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.settimeout(3.0)
@@ -339,9 +358,11 @@ class Node:
                         
                         if response['type'] == 'chain_data':
                             self.chain.resolve_conflicts(response['chain'])
+                            
+                    self._handle_peer_success(peer_host, peer_port)
                         
             except Exception as e:
-                print(f"Failed to sync with peer {peer_host}:{peer_port}: {e}")
+                self._handle_peer_failure(peer_host, peer_port, str(e))
 
     def start_periodic_sync(self):
         
