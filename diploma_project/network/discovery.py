@@ -206,7 +206,7 @@ class NetworkDiscovery:
         
         def periodic_discovery():
             while self.running:
-                time.sleep(10)
+                time.sleep(30)  
                 new_nodes = self.discover_nodes()
                 self.nodes.update(new_nodes)
         
