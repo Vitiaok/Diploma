@@ -71,7 +71,13 @@ class Node:
 
     def _handle_peer_failure(self, peer_host, peer_port, error_msg):
         peer = (peer_host, peer_port)
-        self.peer_failures[peer] = self.peer_failures.get(peer, 0) + 1
+        
+        # If the OS actively refuses the connection, the node application is definitely dead
+        if "ConnectionRefusedError" in error_msg or "10061" in error_msg:
+            self.peer_failures[peer] = 3
+        else:
+            self.peer_failures[peer] = self.peer_failures.get(peer, 0) + 1
+            
         failures = self.peer_failures[peer]
         print(f"Failed to connect to peer {peer_host}:{peer_port} ({error_msg}). Failure count: {failures}/3")
         
@@ -128,6 +134,10 @@ class Node:
                 
             elif message['type'] == 'file_transfer':
                 self.file_handler.receive_file(client_socket, message['metadata'])
+
+            elif message['type'] == 'ping':
+                response = {'type': 'pong'}
+                client_socket.sendall(json.dumps(response).encode('utf-8'))
                 
             elif message['type'] == 'get_chain':
                 response = {
@@ -377,6 +387,27 @@ class Node:
         sync_thread = threading.Thread(target=sync_task)
         sync_thread.daemon = True
         sync_thread.start()
+
+    def start_periodic_ping(self):
+        def ping_task():
+            while self.running:
+                for peer_host, peer_port in self.peers.copy():
+                    try:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            s.settimeout(1.0)
+                            s.connect((peer_host, peer_port))
+                            request = {'type': 'ping'}
+                            s.sendall(json.dumps(request).encode('utf-8'))
+                            data = s.recv(1024)
+                        if data:
+                            self._handle_peer_success(peer_host, peer_port)
+                    except Exception as e:
+                        self._handle_peer_failure(peer_host, peer_port, str(e))
+                time.sleep(3)
+                
+        ping_thread = threading.Thread(target=ping_task)
+        ping_thread.daemon = True
+        ping_thread.start()
 
     def request_block_from_peers(self, block_index):
         

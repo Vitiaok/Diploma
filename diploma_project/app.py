@@ -42,6 +42,7 @@ def _start_node(node_id: str):
         threading.Thread(target=_node.multicast_listen,            daemon=True).start()
         threading.Thread(target=_node.periodic_multicast_announce, daemon=True).start()
         _node.start_periodic_sync()
+        _node.start_periodic_ping()
         print(f"[NODE] '{node_id}' ready on {_node.host}:{_node.port}")
     except Exception as e:
         print(f"[NODE ERROR] {e}")
