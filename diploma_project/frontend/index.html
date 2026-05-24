@@ -127,11 +127,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 <!-- ── Dashboard ── -->
 <div class="tab active" id="tab-dashboard">
-  <div class="stats-grid">
+  <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
     <div class="card purple"><div class="card-label">Chain Length</div><div class="card-value" id="s-chain">—</div><div class="card-sub">blocks total</div></div>
     <div class="card cyan">  <div class="card-label">Peers</div>      <div class="card-value" id="s-peers">—</div><div class="card-sub">connected nodes</div></div>
     <div class="card green"> <div class="card-label">Node Host</div>   <div class="card-value" style="font-size:16px;padding-top:4px" id="s-host">—</div><div class="card-sub" id="s-port"></div></div>
-    <div class="card yellow"><div class="card-label">Received Files</div><div class="card-value" id="s-files">—</div><div class="card-sub">in node_files/</div></div>
   </div>
 
   <div class="card" style="margin-bottom:24px">
@@ -278,8 +277,8 @@ async function fetchFiles(){
     const r=await fetch('/api/files');
     filesData=await r.json();
     renderFiles();
-    document.getElementById('s-files').textContent=filesData.length;
-    document.getElementById('files-count').textContent=filesData.length;
+    const filesCountEl = document.getElementById('files-count');
+    if (filesCountEl) filesCountEl.textContent = filesData.length;
   }catch(e){}
 }
 
