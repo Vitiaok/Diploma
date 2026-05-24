@@ -85,6 +85,18 @@ class Node:
             if peer in self.peers:
                 self.peers.remove(peer)
                 print(f"Peer {peer_host}:{peer_port} removed from active peers due to 3 consecutive failures.")
+                
+                # Prevent discovery module from instantly re-adding the dead peer
+                from network.config import NetworkConfig
+                if NetworkConfig._discovery:
+                    discovery = NetworkConfig._discovery
+                    target_discovery_port = peer_port - discovery.FILE_TRANSFER_PORT_OFFSET
+                    
+                    for nid, addr in list(discovery.nodes.items()):
+                        if addr[0] == peer_host and addr[1] == target_discovery_port:
+                            del discovery.nodes[nid]
+                            print(f"Peer {nid} purged from global discovery registry.")
+                            
             if peer in self.peer_failures:
                 del self.peer_failures[peer]
 
