@@ -63,12 +63,23 @@ def run_simulation():
     print("This script will simulate SIMULTANEOUS file transfers across the network.")
     print("This will trigger chain divergence and force the consensus algorithm to resolve conflicts (auto-heal).\n")
     
-    try:
-        concurrent = int(input("Enter number of SIMULTANEOUS transfers to trigger (e.g. 5): "))
-        file_size = int(input("Enter dummy file size in KB (e.g. 100): "))
-    except ValueError:
-        print("Invalid input.")
-        return
+    import sys
+    
+    if len(sys.argv) >= 3:
+        try:
+            concurrent = int(sys.argv[1])
+            file_size = int(sys.argv[2])
+            print(f"Using arguments: {concurrent} transfers, {file_size}KB each")
+        except ValueError:
+            print("Invalid command line arguments.")
+            return
+    else:
+        try:
+            concurrent = int(input("Enter number of SIMULTANEOUS transfers to trigger (e.g. 5): "))
+            file_size = int(input("Enter dummy file size in KB (e.g. 100): "))
+        except ValueError:
+            print("Invalid input.")
+            return
 
     print(f"\nStarting {concurrent} simultaneous transfers of {file_size}KB each in 3 seconds...\n")
     time.sleep(3)
