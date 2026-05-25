@@ -1,269 +1,254 @@
-# 🔐 Decentralized Secure File Sharing on Private Blockchain
+# 📘 Децентралізована система захищеного файлообміну на приватному блокчейні
 
-> **Bachelor's Thesis** — *Modelling and Scalability Analysis of a Decentralized Secure File Exchange System on a Private Blockchain*
-> 
-> Specialty: **F3 Computer Science** | Lviv National University named after Ivan Franko
+> *P2P-система для безпечного обміну файлами між вузлами мережі з використанням блокчейну, AES-256-GCM шифрування та Proof-of-Work консенсусу — без центрального сервера.*
 
 ---
 
-## 📋 Overview
+## 👤 Автор
 
-A fully decentralized P2P file-sharing system where every node discovers peers automatically, encrypts files end-to-end, and records every transfer immutably on a private blockchain — no central server, no single point of failure.
+- **ПІБ**: Прізвище Ім'я По-батькові
+- **Група**: ФЕІ-41
+- **Керівник**: Прізвище Ім'я, науковий ступінь, посада
+- **Дата виконання**: 2026
 
-### Key Features
+---
 
-| Feature | Implementation |
+## 📌 Загальна інформація
+
+- **Тип проєкту**: Децентралізована P2P-система / Дослідницький проєкт
+- **Мова програмування**: Python 3.11
+- **Фреймворки / Бібліотеки**: Flask, cryptography (PyCA), socket, threading, unittest
+
+---
+
+## 🧠 Опис функціоналу
+
+- 🔍 Автоматичне виявлення вузлів у локальній мережі (UDP Multicast + HTTP-сканування LAN)
+- 🔒 Наскрізне шифрування файлів (AES-256-GCM + RSA-2048 гібридна схема)
+- ✍️ Цифровий підпис кожного блоку (RSA-PKCS1v15-SHA256)
+- ⛏️ Консенсус Proof-of-Work (SHA-256, ціль — 5 нулів у хеші)
+- 🔄 Самовідновлення мережі: heartbeat-пінги кожні 3 секунди, автоматичне видалення мертвих вузлів
+- 📊 DES-симуляція масштабованості до 100 000 вузлів
+- 🌐 Веб-дашборд у реальному часі (Vanilla JS)
+- 🧪 9 автоматизованих Mock-тестів критичного шляху
+
+---
+
+## 🧱 Опис основних класів / файлів
+
+| Клас / Файл | Призначення |
 |---|---|
-| 🔍 Auto peer discovery | UDP Multicast + LAN HTTP scan |
-| 🔒 File encryption | AES-256-GCM + RSA-2048 (hybrid) |
-| ✍️ Digital signatures | RSA-PKCS1v15-SHA256 per block |
-| ⛏️ Consensus | Proof-of-Work (5-zero hash target) |
-| 🔄 Self-healing network | Heartbeat ping every 3 seconds |
-| 📊 Scalability analysis | DES simulation up to 100,000 nodes |
-| 🌐 Web UI | Real-time dashboard (Vanilla JS) |
+| `app.py` | Точка входу — Flask REST API + запуск фонових потоків вузла |
+| `network/node.py` | Ядро P2P-вузла: сервер, клієнт, heartbeat, управління пірами |
+| `network/discovery.py` | UDP Multicast та TCP-виявлення вузлів у LAN |
+| `network/config.py` | Детерміноване призначення портів та реєстр пірів |
+| `blockchain/block.py` | Структура блоку, обчислення SHA-256 хешу |
+| `blockchain/chain.py` | Управління ланцюгом: PoW, валідація, вирішення форків |
+| `blockchain/keys.py` | Генерація RSA-2048 ключів, підпис та верифікація |
+| `security/encryption.py` | AES-256-GCM шифрування + RSA обгортання ключів |
+| `files/handler.py` | Координація захищеної передачі файлів між вузлами |
+| `analysis/des_simulation.py` | Дискретно-подієвий симулятор масштабованості (DES) |
+| `analysis/traffic_simulator.py` | Генератор конкурентного навантаження для тестування |
+| `analysis/logger.py` | Структурований JSON-логер подій вузла |
+| `frontend/index.html` | SPA-дашборд: стан мережі, піри, блокчейн у реальному часі |
+| `tests/test_critical_path.py` | 9 Mock-тестів критичного шляху системи |
+| `start_cluster.ps1` | PowerShell-скрипт запуску N вузлів автоматично |
+| `run_full_simulation.ps1` | Комплексна симуляція: кластер + трафік в один клік |
 
 ---
 
-## 🏗️ Architecture
+## ▶️ Як запустити проєкт "з нуля"
 
-```
-diploma_project/
-├── app.py                  # Flask REST API + Node startup
-├── network/
-│   ├── node.py             # Core P2P node (server + client)
-│   ├── discovery.py        # UDP Multicast + TCP peer discovery
-│   └── config.py           # Port assignment & peer registry
-├── blockchain/
-│   ├── block.py            # Block structure + SHA-256 hashing
-│   ├── chain.py            # Chain management, PoW, consensus
-│   └── keys.py             # RSA key generation & signing
-├── security/
-│   └── encryption.py       # AES-256-GCM + RSA-2048 hybrid
-├── files/
-│   └── handler.py          # Encrypted file transfer logic
-├── analysis/
-│   ├── des_simulation.py   # Discrete-Event Simulator (DES)
-│   ├── traffic_simulator.py# Concurrent load testing tool
-│   ├── logger.py           # Structured JSON event logger
-│   └── metrics.py          # Performance metrics collector
-├── frontend/
-│   └── index.html          # Single-page dashboard UI
-├── tests/
-│   └── test_critical_path.py  # 9 mock unit tests
-├── start_cluster.ps1       # Launch N nodes automatically
-└── run_full_simulation.ps1 # Full cluster + traffic simulation
+### 1. Встановлення інструментів
+
+- Python 3.11+
+- pip
+
+### 2. Клонування репозиторію
+
+```bash
+git clone https://github.com/Vitiaok/Diploma.git
+cd Diploma/diploma_project
 ```
 
-### How it works
-
-```
-[Node A]  →  generates AES key  →  encrypts file (AES-256-GCM)
-          →  wraps AES key with RSA pubkey of each peer
-          →  mines PoW hash (SHA-256, 5 zeros prefix)
-          →  broadcasts block to all peers via TCP
-          
-[Node B]  →  verifies PoW hash
-          →  verifies RSA digital signature
-          →  unwraps AES key with own private key
-          →  decrypts file  →  adds block to chain
-```
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
+### 3. Встановлення залежностей
 
 ```bash
 pip install flask cryptography requests
 ```
 
-### Run a Single Node
+### 4. Запуск одного вузла
 
 ```bash
 python app.py node1
-# Opens web UI at http://localhost:5001
 ```
 
-### Run a Local Cluster (PowerShell)
+Веб-інтерфейс відкриється за адресою: **http://localhost:5001**
+
+### 5. Запуск кластеру (PowerShell)
 
 ```powershell
-# Start 5 nodes automatically
+# Запустити 5 вузлів автоматично
 .\start_cluster.ps1 -count 5
 
-# Or run full simulation: 5 nodes + traffic test
+# Повна симуляція: 5 вузлів + 10 одночасних передач файлів по 100 КБ
 .\run_full_simulation.ps1 -nodes 5 -transfers 10 -filesizeKB 100
 ```
 
-### Run with Docker
+### 6. Запуск через Docker
 
 ```bash
 docker-compose up --scale node=5
 ```
 
-### Manual multi-node setup
+---
+
+## 🔌 API Приклади
+
+### 📊 Статус вузла
+
+**GET /api/status**
 
 ```bash
-# Terminal 1
-python app.py node1
-
-# Terminal 2
-python app.py node2
-
-# Terminal 3
-python app.py node3
+curl http://localhost:5001/api/status
 ```
 
-Nodes discover each other automatically via UDP Multicast within seconds.
+**Response:**
+```json
+{
+  "status": "running",
+  "node_id": "node1",
+  "host": "192.168.1.10",
+  "port": 6001,
+  "peers_count": 4,
+  "chain_length": 12,
+  "public_key": "-----BEGIN PUBLIC KEY-----\n..."
+}
+```
 
 ---
 
-## 🌐 REST API
+### 📁 Відправка зашифрованого файлу
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/status` | Node status, peers count, chain length |
-| GET | `/api/peers` | List of active peers |
-| GET | `/api/chain` | Full blockchain in JSON |
-| POST | `/api/send_file` | Send encrypted file to peers |
-| POST | `/api/validate_block` | Receive & validate block from peer |
-| GET | `/api/metrics` | Performance metrics (CSV export) |
+**POST /api/send_file**
 
-**Example — Send a file:**
 ```bash
 curl -X POST http://localhost:5001/api/send_file \
   -F "file=@/path/to/secret.pdf"
 ```
 
-**Example — Check status:**
-```bash
-curl http://localhost:5001/api/status
+**Response:**
+```json
+{
+  "status": "success",
+  "block_hash": "00000a3f...",
+  "recipients": ["node2", "node3"]
+}
 ```
 
 ---
 
-## 🔐 Security Model
+### 🔗 Отримати блокчейн
 
-```
-Sender                          Receiver
-  │                                 │
-  │── generate k_session (AES-256) ─│
-  │── encrypt file: C = AES-GCM(F, k_session)
-  │── wrap key: w = RSA_ENCRYPT(pk_receiver, k_session)
-  │────────── send (C, w, nonce, tag) ──────────▶│
-  │                                 │
-  │                                 │── k = RSA_DECRYPT(sk_self, w)
-  │                                 │── F = AES_GCM_DECRYPT(C, k, nonce, tag)
-```
-
-- **Confidentiality**: AES-256-GCM ensures file content is unreadable without the session key
-- **Key Security**: RSA-2048 ensures only the intended recipient can unwrap the AES key
-- **Integrity**: GCM authentication tag detects any tampering with the ciphertext
-- **Non-repudiation**: RSA-PKCS1v15-SHA256 signature on each block hash
-
----
-
-## 📊 Scalability Analysis
-
-The system includes a **Discrete-Event Simulator (DES)** for theoretical scalability analysis:
+**GET /api/chain**
 
 ```bash
-python analysis/des_simulation.py
+curl http://localhost:5001/api/chain
 ```
-
-**Results (5 MB file, averaged over 3 Monte Carlo runs):**
-
-| Nodes (N) | Crypto (ms) | Consensus (ms) | Bandwidth (MB) | TPS |
-|---|---|---|---|---|
-| 5 | 30 | 292 | 25 | 9.69 |
-| 100 | 220 | 2,429 | 500 | 1.22 |
-| 1,000 | 2,020 | 22,542 | 5,000 | 0.13 |
-| 10,000 | 20,020 | 224,144 | 50,000 | 0.01 |
-| 100,000 | 200,020 | 2,241,525 | 500,000 | 0.001 |
-
-> **Finding**: Broadcast architecture is O(N) — optimal for private networks up to ~500 nodes. For global scale, a Gossip protocol (O(log N)) would be needed.
 
 ---
 
-## 🧪 Testing
+### 👥 Список активних пірів
 
-Run the full test suite (9 critical path tests):
+**GET /api/peers**
+
+```bash
+curl http://localhost:5001/api/peers
+```
+
+---
+
+## 🖱️ Інструкція для користувача
+
+1. **Запустіть вузол** командою `python app.py node1` — вузол автоматично знайде інші вузли в мережі.
+
+2. **Відкрийте дашборд** у браузері: `http://localhost:5001`
+   - Панель показує кількість активних пірів, довжину блокчейну та публічний ключ вузла.
+
+3. **Відправте файл**:
+   - Натисніть кнопку `📤 Send File` на дашборді
+   - Оберіть файл — він автоматично зашифрується та відправиться всім підключеним вузлам
+
+4. **Перегляд блокчейну**:
+   - Кожна успішна передача файлу створює новий блок у ланцюзі
+   - Блок містить SHA-256 хеш файлу, часову мітку та цифровий підпис
+
+5. **Симуляція навантаження** (PowerShell):
+   ```powershell
+   .\run_full_simulation.ps1 -nodes 7 -transfers 15 -filesizeKB 250
+   ```
+
+---
+
+## 📷 Приклади / скриншоти
+
+(додайте зображення у папку `/screenshots/`)
+
+- Головний дашборд з активними вузлами
+- Відображення блокчейну після передачі файлів
+- Консоль вузла під час симуляції навантаження
+- Результати DES-симуляції у CSV
+
+---
+
+## 🧪 Тестування
 
 ```bash
 python -m unittest tests.test_critical_path
 ```
 
-| Test | What it verifies |
-|---|---|
-| `test_blockchain_rejects_tampered_blocks` | Immutability — tampered file_hash is rejected |
-| `test_proof_of_work_difficulty` | PoW produces correct hash prefix |
-| `test_consensus_fork_resolution` | Longest chain rule resolves forks |
-| `test_concurrency_race_condition` | RLock prevents data corruption under 10 parallel threads |
-| `test_missing_block_sync_trigger` | Chain rejects blocks with missing predecessor |
-| `test_aes_encryption_decryption_flow` | AES-256-GCM encrypts and decrypts without data loss |
-| `test_rsa_signature_forgery` | Forged RSA signature is rejected |
-| `test_node_handles_connection_refused` | Dead peers are auto-removed (Self-Healing) |
-| `test_discovery_handles_malformed_udp_packets` | Malformed JSON packets don't crash discovery |
-
-**Expected output:**
+**Очікуваний результат:**
 ```
 Ran 9 tests in ~9s
 OK
 ```
 
----
-
-## 🔬 Load Testing
-
-```bash
-# Run traffic simulator: 10 concurrent file transfers, 100KB each
-python analysis/traffic_simulator.py 10 100
-
-# Full automated simulation (PowerShell)
-.\run_full_simulation.ps1 -nodes 7 -transfers 15 -filesizeKB 250
-```
-
-Results are saved to `results/advanced_scalability.csv`.
-
----
-
-## 🛠️ Technology Stack
-
-| Layer | Technology |
+| Тест | Що перевіряє |
 |---|---|
-| Language | Python 3.11 |
-| Web Framework | Flask 3.x |
-| Cryptography | cryptography (PyCA) — AES-256-GCM, RSA-2048 |
-| Networking | socket (TCP/UDP), UDP Multicast |
-| Frontend | HTML5, Vanilla JavaScript |
-| Containerization | Docker, docker-compose |
-| Testing | unittest, unittest.mock |
-| Simulation | Custom DES (heapq-based event queue) |
+| `test_blockchain_rejects_tampered_blocks` | Незмінність — підробка file_hash відхиляється |
+| `test_proof_of_work_difficulty` | PoW генерує хеш з 5 нульовими символами |
+| `test_consensus_fork_resolution` | Правило найдовшого ланцюга вирішує форки |
+| `test_concurrency_race_condition` | RLock запобігає пошкодженню даних у 10 потоках |
+| `test_missing_block_sync_trigger` | Блок з відсутнім predecessor відхиляється |
+| `test_aes_encryption_decryption_flow` | AES-256-GCM шифрує/дешифрує без втрат даних |
+| `test_rsa_signature_forgery` | Підроблений RSA-підпис відхиляється |
+| `test_node_handles_connection_refused` | Мертві вузли видаляються автоматично |
+| `test_discovery_handles_malformed_udp_packets` | Битий JSON не крашить модуль виявлення |
 
 ---
 
-## 📁 Key Files
+## 🔬 Проблеми і рішення
 
-| File | Purpose |
+| Проблема | Рішення |
 |---|---|
-| `app.py` | Entry point — starts Flask + all background threads |
-| `network/node.py` | Core P2P logic, heartbeat, peer management |
-| `blockchain/chain.py` | PoW, block validation, fork resolution |
-| `security/encryption.py` | AES-256-GCM + RSA-2048 hybrid encryption |
-| `analysis/des_simulation.py` | DES scalability simulator (up to 100K nodes) |
-| `tests/test_critical_path.py` | 9 critical-path mock tests |
-| `start_cluster.ps1` | PowerShell cluster launcher |
-| `run_full_simulation.ps1` | One-click simulation script |
+| Вузли не знаходять один одного | Перевірити, чи увімкнено UDP Multicast у брандмауері Windows |
+| `WinError 10061` у логах | Нормальна поведінка — вузол намагається підключитись до вже вимкненого піра |
+| Вузли зникають і знову з'являються | Оновіть до останньої версії — виправлено механізмом очищення глобального реєстру |
+| `Port already in use` | Змініть `node_id` або закрийте попередній процес Python |
+| Docker-вузли не бачать один одного | Переконайтесь, що всі контейнери у спільній docker network |
 
 ---
 
-## 📄 License
+## 🧾 Використані джерела / література
 
-MIT License — see [LICENSE](LICENSE) for details.
+- Nakamoto S. Bitcoin: A Peer-to-Peer Electronic Cash System. 2008.
+- Python Cryptographic Authority. [cryptography](https://cryptography.io/en/latest/) library Documentation.
+- Pallets Projects. [Flask](https://flask.palletsprojects.com) Web Framework Documentation.
+- NIST FIPS 197. Advanced Encryption Standard (AES). 2001.
+- Tanenbaum A.S., Van Steen M. Distributed Systems: Principles and Paradigms. 3rd ed. Pearson. 2017.
+- Zheng Z. et al. An Overview of Blockchain Technology: Architecture, Consensus, and Future Trends. IEEE BigData Congress. 2017.
+- Antonopoulos A.M. Mastering Bitcoin: Programming the Open Blockchain. 2nd ed. O'Reilly. 2017.
 
 ---
 
-## 👤 Author
-
-**Bachelor's Thesis** — Faculty of Electronics and Computer Technologies  
-Lviv National University named after Ivan Franko, 2026
+## Screenshots
