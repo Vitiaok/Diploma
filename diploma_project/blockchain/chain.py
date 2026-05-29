@@ -26,7 +26,7 @@ class Chain:
         
         
         if len(self.blockchain) == 0:
-            previous_hash = "0" * 64 
+            previous_hash = "0"
         else:
             previous_block = self.blockchain[-1]
             previous_hash = previous_block.hash
@@ -130,8 +130,8 @@ class Chain:
                 print(f"Previous hash does not match: expected {self.blockchain[-1].hash}, got {block.previous_hash}")
                 return False, f"previous_hash_mismatch (expected {self.blockchain[-1].hash}, got {block.previous_hash})"
         else:
-            if block.previous_hash != "0" and block.previous_hash is not None:
-                print(f"Missing previous blocks: expected genesis hash '0', got {block.previous_hash}")
+            if block.previous_hash != "0" and block.previous_hash != "0" * 64 and block.previous_hash is not None:
+                print(f"Missing previous blocks: expected genesis hash '0' or '0'*64, got {block.previous_hash}")
                 return False, "missing_previous_blocks"
 
         

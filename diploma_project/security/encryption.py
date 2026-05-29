@@ -1,17 +1,14 @@
-"""
-Шифрування файлів для захищеного файлообміну.
-
-Схема:
-  - AES-256-GCM  для шифрування вмісту файлу
-  - RSA-OAEP/SHA-256 для захищеного обміну AES-ключем
-"""
 import os
 import base64
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
+
+CHUNK_SIZE = 8192  
 
 
 # ---------- AES-256-GCM -------------------------------------------------------
@@ -41,16 +38,55 @@ def decrypt_data(encrypted: bytes, aes_key: bytes) -> bytes:
 
 
 def encrypt_file(file_path: str, aes_key: bytes) -> bytes:
-    """Прочитати файл і повернути зашифровані дані."""
+    
+    nonce = os.urandom(12)
+    encryptor = Cipher(
+        algorithms.AES(aes_key),
+        modes.GCM(nonce),
+        backend=default_backend(),
+    ).encryptor()
+
+    chunks = []
     with open(file_path, "rb") as f:
-        return encrypt_data(f.read(), aes_key)
+        while True:
+            chunk = f.read(CHUNK_SIZE)
+            if not chunk:
+                break
+            chunks.append(encryptor.update(chunk))
+
+    chunks.append(encryptor.finalize())
+    auth_tag = encryptor.tag  # 128-бітний тег автентифікації GCM
+
+    return nonce + b"".join(chunks) + auth_tag
 
 
 def decrypt_to_file(encrypted: bytes, aes_key: bytes, out_path: str) -> None:
-    """Розшифрувати дані і записати у файл."""
-    plaintext = decrypt_data(encrypted, aes_key)
-    with open(out_path, "wb") as f:
-        f.write(plaintext)
+    """
+    Розшифрування та запис у файл блоками по 8 КБ (AES-256-GCM).
+
+    Формат вводу: nonce (12 байт) || ciphertext || auth_tag (16 байт)
+
+    Спочатку верифікується auth_tag — лише після успішної перевірки
+    цілісності дані записуються у файл. Це захищає від атаки
+    "decrypt-then-verify" та підміни шифротексту.
+    """
+    nonce = encrypted[:12]
+    auth_tag = encrypted[-16:]
+    ciphertext = encrypted[12:-16]
+
+    decryptor = Cipher(
+        algorithms.AES(aes_key),
+        modes.GCM(nonce, auth_tag),
+        backend=default_backend(),
+    ).decryptor()
+
+    with open(out_path, "wb") as out_f:
+        offset = 0
+        while offset < len(ciphertext):
+            chunk = ciphertext[offset: offset + CHUNK_SIZE]
+            out_f.write(decryptor.update(chunk))
+            offset += CHUNK_SIZE
+        out_f.write(decryptor.finalize())  # кидає InvalidTag якщо цілісність порушена
 
 
 # ---------- RSA OAEP (обмін ключем) ------------------------------------------

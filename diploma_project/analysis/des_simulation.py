@@ -52,10 +52,12 @@ class AdvancedP2PSimulator:
             if event_type == 'INIT_FILE_TRANSFER':
                 node_id, block_id = args
                 
-                # 1. AES Encryption Time (O(Size))
-                t_aes = (self.file_size_mb / self.aes_encrypt_speed_mb_per_s) * 1000
-                # 2. RSA Encryption of AES key for EACH peer (O(N))
-                t_rsa = self.num_nodes * self.rsa_encrypt_ms
+                # 1. AES Encryption Time (O(Size)) with CPU scheduling jitter
+                t_aes_base = (self.file_size_mb / self.aes_encrypt_speed_mb_per_s) * 1000
+                t_aes = max(1, random.gauss(t_aes_base, t_aes_base * 0.05))
+                # 2. RSA Encryption of AES key for EACH peer (O(N)) with jitter
+                t_rsa_per_key = max(0.5, random.gauss(self.rsa_encrypt_ms, self.rsa_encrypt_ms * 0.05))
+                t_rsa = self.num_nodes * t_rsa_per_key
                 
                 total_crypto_time = t_aes + t_rsa
                 self.metrics['crypto_cpu_ms'][block_id] = total_crypto_time
