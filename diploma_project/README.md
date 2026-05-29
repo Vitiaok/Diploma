@@ -24,13 +24,13 @@
 ## Опис функціоналу
 
 - Автоматичне виявлення вузлів у локальній мережі (UDP Multicast + HTTP-сканування LAN)
-- Наскрізне шифрування файлів (AES-256-GCM + RSA-2048 гібридна схема)
+- Наскрізне потокове шифрування файлів будь-якого розміру (AES-256-GCM Chunking + RSA-2048 гібридна схема)
 - Цифровий підпис кожного блоку (RSA-PKCS1v15-SHA256)
-- Консенсус Proof-of-Work (SHA-256, ціль — 5 нулів у хеші)
+- Консенсус Proof-of-Work (SHA-256, ціль — 5 нулів у хеші) з алгоритмом зворотної сумісності Genesis-блоків
 - Самовідновлення мережі: heartbeat-пінги кожні 3 секунди, автоматичне видалення мертвих вузлів
-- DES-симуляція масштабованості до 100 000 вузлів
+- DES-симуляція та емпіричне тестування масштабованості (лінійна складність O(N))
 - Веб-дашборд у реальному часі (Vanilla JS)
-- 9 автоматизованих Mock-тестів критичного шляху
+- 9 автоматизованих модульних тестів (Mocking, Race condition, Spoofing, PoW forgery)
 
 ---
 
@@ -40,20 +40,18 @@
 |---|---|
 | `app.py` | Точка входу — Flask REST API + запуск фонових потоків вузла |
 | `network/node.py` | Ядро P2P-вузла: сервер, клієнт, heartbeat, управління пірами |
-| `network/discovery.py` | UDP Multicast та TCP-виявлення вузлів у LAN |
+| `network/discovery.py` | UDP Multicast та TCP-виявлення вузлів у LAN (Zero-configuration) |
 | `network/config.py` | Детерміноване призначення портів та реєстр пірів |
 | `blockchain/block.py` | Структура блоку, обчислення SHA-256 хешу |
 | `blockchain/chain.py` | Управління ланцюгом: PoW, валідація, вирішення форків |
 | `blockchain/keys.py` | Генерація RSA-2048 ключів, підпис та верифікація |
-| `security/encryption.py` | AES-256-GCM шифрування + RSA обгортання ключів |
+| `security/encryption.py` | AES-256-GCM потокове шифрування (chunking 8KB) + RSA обгортання ключів |
 | `files/handler.py` | Координація захищеної передачі файлів між вузлами |
-| `analysis/des_simulation.py` | Дискретно-подієвий симулятор масштабованості (DES) |
-| `analysis/traffic_simulator.py` | Генератор конкурентного навантаження для тестування |
-| `analysis/logger.py` | Структурований JSON-логер подій вузла |
+| `analysis/des_simulation.py` | Дискретно-подієвий симулятор (DES) з гауссовим шумом для масштабованості |
+| `analysis/empirical_benchmark.py` | Скрипт для автоматизованого навантажувального P2P-тестування кластерів |
+| `analysis/logger.py` | Структурований JSON/CSV-логер метрик вузла |
 | `frontend/index.html` | SPA-дашборд: стан мережі, піри, блокчейн у реальному часі |
-| `tests/test_critical_path.py` | 9 Mock-тестів критичного шляху системи |
-| `start_cluster.ps1` | PowerShell-скрипт запуску N вузлів автоматично |
-| `run_full_simulation.ps1` | Комплексна симуляція: кластер + трафік в один клік |
+| `tests/test_critical_path.py` | 9 автоматизованих Mock-тестів критичного шляху системи |
 
 ---
 
@@ -251,3 +249,12 @@ OK
 ---
 
 ## Screenshots
+
+### 1. Головний веб-дашборд (User Interface)
+![Головний веб-дашборд](screenshots/User_Interface.png)
+
+### 2. Захищена передача файлів (File Transfer)
+![Захищена передача файлів](screenshots/File_transfer.png)
+
+### 3. Оглядач блоків (Chain Explorer)
+![Оглядач блоків](screenshots/Chain%20explorer.png)
