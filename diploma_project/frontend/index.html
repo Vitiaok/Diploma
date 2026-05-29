@@ -88,13 +88,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .peer-dot{width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0;box-shadow:0 0 6px var(--green)}
 .peer-addr{font-family:'JetBrains Mono',monospace;font-size:13px}
 
-/* ── Metrics ── */
-.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
-.metric-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
-.metric-title{font-size:14px;font-weight:600;margin-bottom:14px;color:var(--cyan)}
-.metric-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px}
-.metric-key{color:var(--muted)}
-.metric-val{font-family:'JetBrains Mono',monospace;color:var(--text)}
+
 
 /* ── Toast ── */
 .toast{position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 20px;font-size:14px;transform:translateY(80px);opacity:0;transition:.3s;z-index:100;max-width:320px}
@@ -119,7 +113,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <button class="active" onclick="showTab('dashboard',this)">Dashboard</button>
     <button onclick="showTab('chain',this)">Chain Explorer</button>
     <button onclick="showTab('files',this)">File Transfer</button>
-    <button onclick="showTab('metrics',this)">Metrics</button>
+
   </nav>
 </header>
 
@@ -189,11 +183,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 </div>
 
-<!-- ── Metrics ── -->
-<div class="tab" id="tab-metrics">
-  <div class="section-title">Performance Metrics</div>
-  <div class="metrics-grid" id="metrics-grid"><div class="empty">No metrics yet. Send a file to generate data.</div></div>
-</div>
+
 
 </main>
 </div>
@@ -203,7 +193,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 <script>
 // ── State & polling ──────────────────────────────────────────────────────────
-let chainData=[], peersData=[], filesData=[], metricsData={};
+let chainData=[], peersData=[], filesData=[];
 let expandedBlocks = new Set(); // зберігаємо індекси розгорнутих блоків
 
 function showTab(name,btn){
@@ -282,13 +272,7 @@ async function fetchFiles(){
   }catch(e){}
 }
 
-async function fetchMetrics(){
-  try{
-    const r=await fetch('/api/metrics');
-    metricsData=await r.json();
-    renderMetrics();
-  }catch(e){}
-}
+
 
 // ── Renderers ─────────────────────────────────────────────────────────────────
 function renderChainViz(){
@@ -389,28 +373,7 @@ function renderFiles(){
   }).join('');
 }
 
-function renderMetrics(){
-  const el=document.getElementById('metrics-grid');
-  const keys=Object.keys(metricsData).filter(k=>k!=='node_id');
-  if(!keys.length){el.innerHTML='<div class="empty">No metrics yet. Send a file to generate data.</div>';return;}
-  const labels={
-    pow_time:'PoW Time',consensus_time:'Consensus Time',
-    encryption_time:'Encrypt Time',transfer_time:'Transfer Time',
-    total_time:'Total Time',broadcast_time:'Broadcast Time',decryption_time:'Decrypt Time'
-  };
-  el.innerHTML=keys.map(k=>{
-    const m=metricsData[k];
-    return `<div class="metric-card">
-      <div class="metric-title">${labels[k]||k}</div>
-      ${['count','mean','min','max','stdev'].map(stat=>`
-        <div class="metric-row">
-          <span class="metric-key">${stat}</span>
-          <span class="metric-val">${stat==='count'?m[stat]:m[stat].toFixed(4)+'s'}</span>
-        </div>
-      `).join('')}
-    </div>`;
-  }).join('');
-}
+
 
 // ── File upload ──────────────────────────────────────────────────────────────
 function handleFile(file){
@@ -470,13 +433,11 @@ function poll(){
   fetchChain();
   fetchPeers();
   fetchFiles();
-  fetchMetrics();
 }
 poll();
 setInterval(fetchStatus, 2500);
 setInterval(fetchPeers,  2500);
 setInterval(fetchFiles,  3000);
-setInterval(fetchMetrics,3000);
 setInterval(fetchChain,  5000); // рідше, щоб не руйнувати відкриті рядки
 </script>
 </body>
