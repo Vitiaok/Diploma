@@ -152,9 +152,17 @@ class Node:
                 client_socket.sendall(json.dumps(response).encode('utf-8'))
                 
             elif message['type'] == 'get_chain':
+                # Collect all known public keys to send along with chain
+                public_keys = {}
+                for fname in os.listdir('.'):
+                    if fname.startswith('public_key_') and fname.endswith('.pem'):
+                        node_name = fname[len('public_key_'):-len('.pem')]
+                        with open(fname, 'r') as kf:
+                            public_keys[node_name] = kf.read()
                 response = {
                     'type': 'chain_data',
-                    'chain': self.chain.get_chain_snapshot()
+                    'chain': self.chain.get_chain_snapshot(),
+                    'public_keys': public_keys
                 }
                 client_socket.sendall(json.dumps(response).encode('utf-8'))
                 
@@ -379,6 +387,14 @@ class Node:
                         response = json.loads(data.decode('utf-8'))
                         
                         if response['type'] == 'chain_data':
+                            # Save public keys from peer BEFORE validating chain
+                            peer_keys = response.get('public_keys', {})
+                            for key_node_id, key_pem in peer_keys.items():
+                                key_path = f"public_key_{key_node_id}.pem"
+                                if not os.path.exists(key_path):
+                                    with open(key_path, 'w') as kf:
+                                        kf.write(key_pem)
+                                    print(f"[Sync] Saved public key for '{key_node_id}' from peer")
                             self.chain.resolve_conflicts(response['chain'])
                             
                     self._handle_peer_success(peer_host, peer_port)

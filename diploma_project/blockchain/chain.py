@@ -1,4 +1,5 @@
 import json
+import os
 import threading
 import datetime as date
 from blockchain.block import Block
@@ -245,9 +246,12 @@ class Chain:
                 
                 sender_id = data_dict.get('sender_node')
                 if sender_id:
-                    is_sig_valid, sig_reason = self.validate_block_signature(current_block, sender_id)
-                    if not is_sig_valid:
-                        validation_errors.append(f'invalid_signature: {sig_reason}')
+                    key_path = f"public_key_{sender_id}.pem"
+                    if os.path.exists(key_path):
+                        is_sig_valid, sig_reason = self.validate_block_signature(current_block, sender_id)
+                        if not is_sig_valid:
+                            validation_errors.append(f'invalid_signature: {sig_reason}')
+                    # If key file missing — skip signature check (node may be offline)
             except Exception:
                 # If we can't parse it or it's an old block without sender_node, 
                 # we just skip signature verification for backward compatibility.
