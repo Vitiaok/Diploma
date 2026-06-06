@@ -13,13 +13,13 @@ class AdvancedP2PSimulator:
         self.num_nodes = num_nodes
         self.file_size_mb = file_size_mb
         
-        # Hardware & Network Constants
-        self.pow_mean_ms = 100
-        self.net_latency_mean_ms = 40
-        self.packet_loss_prob = 0.02
+        # Hardware & Network Constants (ЛОКАЛЬНА МЕРЕЖА)
+        self.pow_mean_ms = 2500                  # Оновлено під емпіричні дані (було 100)
+        self.net_latency_mean_ms = 1             # Пинг на localhost < 1ms (було 40)
+        self.packet_loss_prob = 0.02              # Немає втрат пакетів (було 0.02)
         self.aes_encrypt_speed_mb_per_s = 250.0  # 250 MB/s AES encryption
-        self.rsa_encrypt_ms = 2.0                # 2ms per RSA encryption (for AES key wrapper)
-        self.network_bandwidth_mbps = 1000.0     # Gigabit ethernet (125 MB/s)
+        self.rsa_encrypt_ms = 2.0                # 2ms per RSA encryption
+        self.network_bandwidth_mbps = 80000.0    # 10 GB/s - швидкість RAM/Loopback (було 1000)
         
         self.time = 0.0
         self.events = [] 
@@ -81,7 +81,7 @@ class AdvancedP2PSimulator:
                     if peer_id == node_id: continue
                     if random.random() < self.packet_loss_prob: continue 
                     
-                    latency = max(5, random.gauss(self.net_latency_mean_ms, self.net_latency_mean_ms * 0.3))
+                    latency = max(0.1, random.gauss(self.net_latency_mean_ms, self.net_latency_mean_ms * 0.3))
                     t_val = max(1, random.gauss(5, 1))
                     
                     # Each peer receives the file slightly later due to sender's sequential upload bottleneck
