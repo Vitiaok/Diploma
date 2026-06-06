@@ -48,7 +48,7 @@
 | `security/encryption.py` | AES-256-GCM потокове шифрування (chunking 8KB) + RSA обгортання ключів |
 | `files/handler.py` | Координація захищеної передачі файлів між вузлами |
 | `analysis/des_simulation.py` | Дискретно-подієвий симулятор (DES) з гауссовим шумом для масштабованості |
-| `analysis/empirical_benchmark.py` | Скрипт для автоматизованого навантажувального P2P-тестування кластерів |
+| `analysis/empirical_vs_des_benchmark.py` | Скрипт для автоматизованого навантажувального P2P-тестування кластерів |
 | `analysis/logger.py` | Структурований JSON/CSV-логер метрик вузла |
 | `frontend/index.html` | SPA-дашборд: стан мережі, піри, блокчейн у реальному часі |
 | `tests/test_critical_path.py` | 9 автоматизованих Mock-тестів критичного шляху системи |
@@ -83,14 +83,14 @@ python app.py node1
 
 Веб-інтерфейс відкриється за адресою: **http://localhost:5001**
 
-### 5. Запуск кластеру (PowerShell)
+### 5. Аналіз масштабованості та Бенчмарки
 
-```powershell
-# Запустити 5 вузлів автоматично
-.\start_cluster.ps1 -count 5
+```bash
+# Емпіричне стрес-тестування реального кластера у фоні:
+python analysis/empirical_vs_des_benchmark.py
 
-# Повна симуляція: 5 вузлів + 10 одночасних передач файлів по 100 КБ
-.\run_full_simulation.ps1 -nodes 5 -transfers 10 -filesizeKB 100
+# Теоретична DES-симуляція для великих масштабів (до 100 000 вузлів):
+python analysis/des_simulation.py
 ```
 
 ### 6. Запуск через Docker
@@ -181,11 +181,12 @@ curl http://localhost:5001/api/peers
    - Кожна успішна передача файлу створює новий блок у ланцюзі
    - Блок містить SHA-256 хеш файлу, часову мітку та цифровий підпис
 
-5. **Симуляція навантаження** (PowerShell):
-   ```powershell
-   .\run_full_simulation.ps1 -nodes 7 -transfers 15 -filesizeKB 250
+5. **Симуляція навантаження та Бенчмаркінг**:
+   - Щоб перевірити реальну пропускну здатність мережі (на N вузлах), запустіть скрипт:
+   ```bash
+   python analysis/empirical_vs_des_benchmark.py
    ```
-
+   - Скрипт автоматично підніме кластер у фоні, проведе стрес-тест і згенерує CSV з результатами в папці `results/`.
 
 ## Тестування
 
